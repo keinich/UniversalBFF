@@ -2,6 +2,7 @@
 using ComponentDiscovery;
 using Composition.InstanceDiscovery;
 using Logging.SmartStandards;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Security.AccessTokenHandling;
 using Security.AccessTokenHandling.OAuth;
 using Security.AccessTokenHandling.OAuth.Server;
@@ -270,9 +271,6 @@ namespace UniversalBFF.OobModules.UserManagement {
       out TokenIssuingResult tokenResult
     ) {
 
-
-
-
       tokenResult = new TokenIssuingResult();
 
       //KANN EIGENTLOCH NUR DEN LOOPBACK BETREFFEN - die proxy-targets schicken uns ja zur retrieval-url
@@ -289,17 +287,13 @@ namespace UniversalBFF.OobModules.UserManagement {
 
 
 
-        throw new NotImplementedException("TODO: hier reparieren");
-        //TODO: hier reparieren:
 
-        //return _JwtIssuer.RequestAccessToken(
-        //  nameof(DemoOAuthService), subject, "Everybody", selectedScopes, out tokenResult
-        //);
-
-
-
-
-
+        //AUF interne on-demand-identität mappen und dann neues token erstellen!!!
+        // + login sollte hier nicht als subject herhalen!!! sondern die interne id der on-demand-identität!!!
+        // muss beim validieren des tokens wieder zurückgemappt werden!!!
+        // zus. wegen revoke-check bei google muss das token selbst aber eigentlich auch mit in unserem hängen
+        //   claims    parent_access_token, parent_refresh_token parent_origin_id-> ID des oauth-targets parent_origin_label -> displaylabel des oauth-targets
+        throw new NotImplementedException("TODO: hier entscheiden, ob wir das original token druchschleusen wollen ODER ein eigenes generieren (dann müssten wir das origial aber irgendwie hier behalten)");
 
 
       }

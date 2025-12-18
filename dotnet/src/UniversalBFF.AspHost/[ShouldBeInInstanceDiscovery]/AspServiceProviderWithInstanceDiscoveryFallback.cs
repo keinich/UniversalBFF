@@ -15,6 +15,10 @@ namespace Composition.InstanceDiscovery.AspNetCore {
     private static IServiceProvider _Provider;
 
     internal static void BindToServiceCollection(IServiceCollection services, IServiceProvider provider = null) {
+
+      if (services == null) {
+        throw new ArgumentNullException("services");
+      } 
       _ServiceCollection = services;
       _Provider = provider;
     }
@@ -27,6 +31,9 @@ namespace Composition.InstanceDiscovery.AspNetCore {
 
     public Type[] DedicatedDiscoverableTypes {
       get {
+        if(_ServiceCollection == null) {
+          return new Type[0];
+        }
         return _ServiceCollection.Select((s) => s.ServiceType).ToArray();
       }
     }
@@ -46,6 +53,10 @@ namespace Composition.InstanceDiscovery.AspNetCore {
 
       instance = null;
       lifetimeResponsibility = LifetimeResponsibility.Managed;
+
+      if (_ServiceCollection == null) {
+        return false;
+      }
 
       ServiceDescriptor sDesc = _ServiceCollection.Where((s) => s.ServiceType == requestedType).FirstOrDefault();
 
