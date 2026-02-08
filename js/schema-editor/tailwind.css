@@ -1,0 +1,60 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+@import "tailwindcss/variants";
+
+@layer base {
+  :root {
+    --color-background-one: rgb(255 255 255);
+    --color-background-two: rgb(248, 248, 248);
+    --color-background-two1: rgb(250 249 248);
+    --color-background-two2: rgb(247 247 249);
+    --color-background-three: rgb(242 242 242);
+    --color-background-three1: rgb(243 242 241);
+    --color-background-three2: rgb(241 240 239);
+    --color-background-four: rgb(235 235 235);
+    --color-background-four1: rgb(237 235 233);
+    --color-background-four2: rgb(233 233 236);
+    --color-background-five: rgb(232 232 232);
+    --color-background-five1: rgb(225 223 221);
+    --color-background-five2: rgb(221 221 224);
+    --color-background-six: rgb(213 213 213);
+    --color-background-six1: rgb(225 223 221);
+    --color-background-seven: rgb(200 198 196);
+    --color-background-zero-dark: rgb(31, 33, 35);
+    --color-background-one-dark: rgb(38, 40, 42);
+    --color-background-two-dark: rgb(45, 49, 53);
+    --color-background-three-dark: rgb(52, 56, 60);
+    --color-background-four-dark: rgb(79, 83, 85);
+    --color-background-five-dark: rgb(86, 88, 90);
+    --color-background-six-dark: rgb(119, 126, 136);
+    --color-background-seven-dark: rgb(134, 141, 151);
+    --color-text-one: rgb(20, 20, 20);
+    --color-text-two: rgb(60, 60, 60);
+    --color-text-one-dark: rgb(255, 255, 255);
+    --color-text-two-dark: rgb(205, 205, 205);
+    --color-prim-100: #d9cdfd;
+    --color-prim-200: #c6b8ee;
+    --color-prim-300: #bcade6;
+    --color-prim-400: #a795d6;
+    --color-prim-500: #9783ca;
+    --color-prim-600: #816cb6;
+    /* ... */
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+}
+
+.Unit::before {
+  content: attr(data-content);
+}
