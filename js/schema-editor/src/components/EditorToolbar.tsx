@@ -1,3 +1,4 @@
+import { dir } from "console";
 import React from "react";
 import ArrowLeftStartOnRectangle from "ushell-common-components/dist/cjs/_Icons/ArrowLeftStartOnRectangle";
 import ArrowRightStartOnRectangle from "ushell-common-components/dist/cjs/_Icons/ArrowRightStartOnRectangle";
@@ -9,12 +10,14 @@ const EditorToolbar: React.FC<{
   showProperties: boolean;
   setShowProperties: (v: boolean) => void;
   save: () => void;
+  dirty: boolean;
 }> = ({
   schemaName,
   setSchemaName,
   showProperties,
   setShowProperties,
   save,
+  dirty,
 }) => {
   return (
     <div
@@ -30,14 +33,16 @@ const EditorToolbar: React.FC<{
             setSchemaName(e.target.value);
           }}
         ></input>
-        <button
-          className="text-blue-400 p-1 hover:text-blue-500"
-          onClick={() => {
-            save();
-          }}
-        >
-          <FloppyDiskIcon size={1.5}></FloppyDiskIcon>
-        </button>
+        {dirty && (
+          <button
+            className="text-blue-400 p-1 hover:text-blue-500"
+            onClick={() => {
+              save();
+            }}
+          >
+            <FloppyDiskIcon size={1.5}></FloppyDiskIcon>
+          </button>
+        )}
       </div>
       <button
         className="p-1 rounded-sm mx-2 hover:bg-bg4 dark:hover:bg-bg4dark"

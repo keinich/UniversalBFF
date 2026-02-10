@@ -46,13 +46,15 @@ function calculateNodeDimensions(nodeData: NodeData): {
 
 const SchemaEditor: React.FC<{
   schemaName: string;
-  schema: SchemaRoot;
+  schema: SchemaRoot | null;
   onChangeSchemaName: (newName: string) => void;
   onChangeSchema: (newSchema: SchemaRoot) => void;
 }> = ({ schemaName, schema, onChangeSchemaName, onChangeSchema }) => {
   const boardElement = document.getElementById("board");
 
-  const [showProperties, setShowProperties] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  const [showProperties, setShowProperties] = useState(true);
 
   const [currentId, setCurrentId] = useState(1);
   const [grabbingBoard, setGrabbingBoard] = useState(false);
@@ -95,10 +97,14 @@ const SchemaEditor: React.FC<{
   const [resizeStartWidth, setResizeStartWidth] = useState<number>(0);
 
   useEffect(() => {
+    console.log("schema changed", { schema });
     const pd = (e: any) => e.preventDefault();
     document.addEventListener("contextmenu", pd);
 
-    const boardState: BoardState = getBoardStateFromSchema(schema);
+    const boardState: BoardState = schema
+      ? getBoardStateFromSchema(schema)
+      : loadFromLocalStore();
+    console.log("Loaded board state:", boardState);
 
     setNodes(boardState.nodes);
     setEdges(boardState.edges);
@@ -115,15 +121,44 @@ const SchemaEditor: React.FC<{
   }, [schema]);
 
   useEffect(() => {
-    save();
+    saveToLocalStore();
   }, [nodes, edges]);
 
-  function save() {
+  function loadFromLocalStore(): BoardState {
+    console.log("Loading board state from localStore...");
+    const boardStateString = localStorage.getItem("boardState");
+    if (boardStateString) {
+      try {
+        const boardState = JSON.parse(boardStateString);
+        return boardState;
+      } catch (e) {
+        console.error("Failed to parse board state from localStorage:", e);
+        return { nodes: [], edges: [] };
+      }
+    } else {
+      return { nodes: [], edges: [] };
+    }
+  }
+
+  function saveToLocalStore() {
+    console.log("Saving board state to localStore...", { nodes, edges });
     const boardState: any = {
       nodes: nodes,
       edges: edges,
     };
     localStorage.setItem("boardState", JSON.stringify(boardState));
+  }
+
+  function updateNodes(updatedNodes: NodeData[]) {
+    console.log("Updating nodes...");
+    setNodes(updatedNodes);
+    setDirty(true);
+  }
+
+  function updateEdges(updatedEdges: EdgeData[]) {
+    console.log("Updating edges...");
+    setEdges(updatedEdges);
+    setDirty(true);
   }
 
   function saveSchema() {
@@ -238,7 +273,7 @@ const SchemaEditor: React.FC<{
       entitySchema: entitySchema,
     };
     setCurrentId((i) => i + 1);
-    setNodes([...nodes, result]);
+    updateNodes([...nodes, result]);
   }
 
   function handleCommitField(
@@ -255,7 +290,7 @@ const SchemaEditor: React.FC<{
     } else {
       nodeData.entitySchema.fields.push(fieldSchema);
     }
-    save();
+    saveToLocalStore();
   }
 
   function handleCommitIndex(
@@ -272,24 +307,24 @@ const SchemaEditor: React.FC<{
     } else {
       nodeData.entitySchema.indices.push(indexSchema);
     }
-    save();
+    saveToLocalStore();
   }
 
   function handleDeleteField(nodeData: NodeData, fieldSchema: FieldSchema) {
     nodeData.entitySchema.fields = nodeData.entitySchema.fields.filter(
       (f: FieldSchema) => f.name !== fieldSchema.name,
     );
-    save();
+    saveToLocalStore();
   }
   function handleDeleteIndex(nodeData: NodeData, indexSchema: IndexSchema) {
     nodeData.entitySchema.indices = nodeData.entitySchema.indices.filter(
       (f: IndexSchema) => f.name !== indexSchema.name,
     );
-    save();
+    saveToLocalStore();
   }
   function handleCommitEntityName(nodeData: NodeData, entityName: string) {
     nodeData.entitySchema.name = entityName;
-    save();
+    saveToLocalStore();
   }
 
   function applyScale(e: any) {
@@ -354,7 +389,7 @@ const SchemaEditor: React.FC<{
         nodeEnd.inputEdgeIds = [...nodeEnd.inputEdgeIds, edgeId];
 
         newEdge.relation.primaryEntityName = nodeEnd.entitySchema.name;
-        setEdges([
+        updateEdges([
           ...edges,
           {
             ...newEdge,
@@ -395,7 +430,7 @@ const SchemaEditor: React.FC<{
           x: node.previousPosition.x + deltaX,
           y: node.previousPosition.y + deltaY,
         };
-        setNodes([...nodes]);
+        updateNodes([...nodes]);
         // Edges will automatically update their positions based on node positions
       }
     } else {
@@ -483,11 +518,11 @@ const SchemaEditor: React.FC<{
   const handleKeyDown = (e: any) => {
     if (e.key == "Delete") {
       if (selectedNode) {
-        setNodes(nodes.filter((n) => n.id != selectedNode));
+        updateNodes(nodes.filter((n) => n.id != selectedNode));
         setSelectedNode(null);
       }
       if (selectedEdge) {
-        setEdges(edges.filter((e) => e.id != selectedEdge.id));
+        updateEdges(edges.filter((e) => e.id != selectedEdge.id));
       }
     }
   };
@@ -539,6 +574,7 @@ const SchemaEditor: React.FC<{
         schemaName={schemaName}
         setSchemaName={onChangeSchemaName}
         save={() => saveSchema()}
+        dirty={dirty}
       ></EditorToolbar>
       <div className="flex w-full h-full overflow-hidden border-0 border-red-400">
         <div className="relative flex-1 h-full overflow-hidden border-0 border-red-400">
@@ -558,7 +594,7 @@ const SchemaEditor: React.FC<{
                 setGrabbingBoard(false);
               }}
               onKeyDown={(e) => handleKeyDown(e)}
-              className="relative w-full  h-full   border-4 border-blue-400 overflow-hidden"
+              className="relative w-full  h-full   border-4 border-green-400 overflow-hidden"
               style={{
                 backgroundImage:
                   "radial-gradient(circle, #b8b8b8bf 1px, rgba(0,0,0,0) 1px",
@@ -691,9 +727,7 @@ const SchemaEditor: React.FC<{
             relation={selectedEdge?.relation}
             index={selectedIndex}
             onChange={() => {
-              save();
-              saveSchema();
-              setNodes([...nodes]); // Force re-render
+              updateNodes([...nodes]); // Force re-render
             }}
           ></EditorProperties>
         </div>

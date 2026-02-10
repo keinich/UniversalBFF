@@ -1,31 +1,36 @@
-import React from 'react'
+import React from "react";
 
-const BoardContextMenu: React.FC<{ onNewEntity: () => void }> = ({ onNewEntity }) => {
+const BoardContextMenu: React.FC<{ onNewEntity: () => void }> = ({
+  onNewEntity,
+}) => {
   return (
     <div
-      className='flex flex-col bg-bg3 dark:bg-bg3dark p-1 z-40'
+      className="flex flex-col bg-bg3 dark:bg-bg3dark p-1 z-40"
       onMouseDown={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        console.log('new Entity')
-        onNewEntity()
+        e.preventDefault();
+        e.stopPropagation();
+        console.log("new Entity");
+        onNewEntity();
       }}
     >
       <button
-        className='p-1 hover:bg-bg4 dark:hover:bg-bg4dark z-40'
+        className="p-1 hover:bg-bg5 dark:hover:bg-bg5dark z-40"
         onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          console.log('new Relation')
+          e.preventDefault();
+          e.stopPropagation();
+          console.log("new Relation");
         }}
       >
         New Entity
       </button>
-      <button className='p-1 hover:bg-bg4 dark:hover:bg-bg4dark' onClick={() => onNewEntity()}>
+      <button
+        className="p-1 hover:bg-bg5 dark:hover:bg-bg5dark"
+        onClick={() => onNewEntity()}
+      >
         New Relation
       </button>
     </div>
-  )
-}
+  );
+};
 
-export default BoardContextMenu
+export default BoardContextMenu;

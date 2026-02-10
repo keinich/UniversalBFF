@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SchemaEditor": {
+      "commandName": "Project",
+      "commandLineArgs": "\"F:\\dev\\MovieDb\\MovieDb\\DataSchema.json\""
+    }
+  }
+}

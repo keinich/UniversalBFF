@@ -53,24 +53,24 @@ const EditorProperties: React.FC<{
           {/* Tab buttons */}
           <div className="flex border-b border-contentBorder dark:border-contentBorderDark">
             <button
-              onClick={() => setActiveTab("layout")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === "layout"
-                  ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
-                  : "text-content dark:text-contentDark hover:text-contentSelected dark:hover:text-contentSelectedDark"
-              }`}
-            >
-              Layout
-            </button>
-            <button
               onClick={() => setActiveTab("data")}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === "data"
                   ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
-                  : "text-content dark:text-contentDark hover:text-contentSelected dark:hover:text-contentSelectedDark"
+                  : "text-textone dark:text-textonedark hover:text-contentSelected dark:hover:text-contentSelectedDark"
               }`}
             >
               Data
+            </button>
+            <button
+              onClick={() => setActiveTab("layout")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === "layout"
+                  ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
+                  : "text-textone dark:text-textonedark hover:text-contentSelected dark:hover:text-contentSelectedDark"
+              }`}
+            >
+              Layout
             </button>
           </div>
 
@@ -87,7 +87,7 @@ const EditorProperties: React.FC<{
                       onChange={(e) => handleColorChange(e.target.value)}
                       className="w-12 h-8 rounded border border-contentBorder dark:border-contentBorderDark cursor-pointer"
                     />
-                    <span className="text-xs text-content dark:text-contentDark">
+                    <span className="text-xs text-textone dark:text-textonedark">
                       {nodeData?.color || "#e0e0e0"}
                     </span>
                   </div>
@@ -104,7 +104,7 @@ const EditorProperties: React.FC<{
                     value={entity?.namePlural || ""}
                     onChange={(e) => handleNamePluralChange(e.target.value)}
                     placeholder="Enter plural name"
-                    className="px-3 py-2 rounded border border-contentBorder dark:border-contentBorderDark bg-contentBg dark:bg-contentBgDark text-content dark:text-contentDark"
+                    className="px-3 py-2 rounded border border-contentBorder dark:border-contentBorderDark bg-contentBg dark:bg-contentBgDark text-textone dark:text-textonedark"
                   />
                 </div>
                 <div className="flex flex-col gap-2">
