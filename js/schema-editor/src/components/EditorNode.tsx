@@ -280,8 +280,15 @@ const EditorNode: React.FC<{
         (nodeData.entitySchema.fields.length +
           nodeData.entitySchema.indices.length));
     const borderHeight = 6;
+    const separationBorderHeight = worldHeightField * 0.03;
+    const separationBorderMargin = worldHeightField * 0.1;
     const numFields = nodeData.entitySchema.fields.length + 2; // +2 for entity name and new field input
-    const height = worldHeightField * numFields + borderHeight;
+    const numIndices = nodeData.entitySchema.indices.length + 1; // +1 for new index input
+    const height =
+      worldHeightField * (numFields + numIndices) +
+      borderHeight +
+      separationBorderHeight +
+      separationBorderMargin;
 
     return (
       <div
@@ -302,6 +309,7 @@ const EditorNode: React.FC<{
           // setActiveField('')
         }}
         className={`flex flex-col relative rounded-md cursor-grab border-2 gap-0 z-10
+          bg-content dark:bg-contentDark
         shadow-md hover:shadow-2xl ${
           nodeData.color ? "" : "bg-bg6 dark:bg-bg6dark"
         } ${selected ? "border-orange-400 " : "border-transparent"}`}
@@ -313,6 +321,12 @@ const EditorNode: React.FC<{
 
             onMouseDown(id, e);
           }}
+          onDoubleClick={(e: any) => {
+            console.log("double click entity name");
+            e.preventDefault();
+            e.stopPropagation();
+            setInputMode(true);
+          }}
           onKeyDown={(e: any) => handleKeyDownEntityName(e)}
           style={{
             width: `${worldWidth - 4}px`,
@@ -323,16 +337,17 @@ const EditorNode: React.FC<{
             // margin: worldHeightField * 0.15,
             borderBottomWidth: `${worldHeightField * 0.01}px`,
           }}
-          className={`hover:bg-bg5 dark:hover:bg-bg5dark text-center border-0 
+          className={`bg-bg4 dark:bg-bg4dark text-center border-0 
           cursor-grab outline-none rounded-t-lg flex align-middle justify-center`}
         >
           <input
             value={entityName}
             onChange={(e) => setEntityName(e.target.value)}
-            readOnly={!(!activeField && inputMode)}
+            // readOnly={!(!activeField && inputMode)}
+            // readOnly={!inputMode}
             onBlur={(e) => onCommitEntityName(e.target.value)}
             placeholder="EntityName"
-            className=" text-center"
+            className=" text-center hover:bg-bg7 dark:hover:bg-bg7dark rounded-md focus:outline-dashed border-0 bg-transparent"
           ></input>
         </div>
         {nodeData.entitySchema.fields.map((f: any, i: number) => {
@@ -355,10 +370,10 @@ const EditorNode: React.FC<{
                   }
                   setActiveField(f);
                   onFieldClick(id, f);
-                  onMouseDown(id, e);
+                  // onMouseDown(id, e);
                 }}
                 onFocus={() => setActiveField(f)}
-                readOnly={f.name != activeField?.name || !inputMode}
+                // readOnly={f.name != activeField?.name || !inputMode}
                 defaultValue={f.name}
                 onKeyDown={(e: any) => handleKeyDownInputField(f, e)}
                 onBlur={(e) => {
@@ -375,15 +390,14 @@ const EditorNode: React.FC<{
                   marginLeft: worldHeightField * 0.15,
                   marginRight: worldHeightField * 0.15,
                 }}
-                className={`text-center rounded-md outline-none cursor-default border-0 border-red-400
-                  hover:bg-bg5 dark:hover:bg-bg5dark
+                className={`text-center rounded-md outline-none cursor-default border-0 border-red-400 select-none                  
                   ${
                     highlightedFields.has(f.name)
                       ? "bg-blue-200 dark:bg-blue-800"
                       : selected && activeField?.name === f.name
-                        ? "bg-bg9 dark:bg-bg9dark"
+                        ? "bg-blue-100 dark:bg-blue-700"
                         : nodeData.color
-                          ? "select-none"
+                          ? "select-none hover:bg-bg5 dark:hover:bg-bg5dark"
                           : "bg-bg6 dark:bg-bg6dark select-none"
                   }`}
               ></input>
@@ -482,65 +496,69 @@ const EditorNode: React.FC<{
           }}
           className={`${nodeData.color ? "" : "bbg-bg6 dark:bg-bg6dark"} text-center p-0 rounded-none outline-none`}
         ></input>
-        {/* <div className="h-0.5  border-b border-contentBorder dark:border-contentBorderDark"></div>
-        {nodeData.entitySchema.indices.map((index: any) => {
+        <div
+          style={{
+            height: `${separationBorderHeight}px`,
+            marginBottom: `${separationBorderMargin}px`,
+          }}
+          className="bg-contentBorder dark:bg-contentBorderDark"
+        ></div>
+        {nodeData.entitySchema.indices.map((index: any, i: number) => {
           const inputRef: any = React.createRef();
           const outputRef: any = createRef();
           return (
-            <div key={index.name} className="relative">
+            // <div key={index.name} className="relative">
+            <>
               <input
                 onMouseDown={(e: any) => {
                   e.stopPropagation();
-                  console.log("mouse down field");
-                  if (index.name != activeIndex?.name) {
+                  if (index.name !== activeIndex?.name) {
                     setInputMode(false);
                   }
                   // onFieldSelected(f)
                   setActiveIndex(index);
-                  onMouseDown(id, e);
+                  // onMouseDown(id, e);
                 }}
                 onFocus={() => setActiveIndex(index)}
-                readOnly={index.name != activeIndex?.name || !inputMode}
                 defaultValue={index.name}
                 onKeyDown={(e: any) => handleKeyDownInputIndex(index, e)}
                 onBlur={(e) => {
-                  console.log("blur field");
                   e.preventDefault();
-                  e.stopPropagation();
+                  // e.stopPropagation();
                   handleCommitIndex(index, e.target.value);
                 }}
+                // readOnly={index.name != activeIndex?.name || !inputMode}
                 placeholder="New Field"
                 style={{
-                  width: `${worldWidth - 4}px`,
+                  width: `${worldWidth - 4 - 2 * worldHeightField * 0.15}px`,
                   height: `${worldHeightField}px`,
                   fontSize: worldHeightField / 2.5,
-                  backgroundColor: highlightedFields.has(index.name)
-                    ? undefined
-                    : nodeData.color
-                      ? "transparent"
-                      : undefined,
+                  marginLeft: worldHeightField * 0.15,
+                  marginRight: worldHeightField * 0.15,
                 }}
-                className={` text-center p-1 rounded-none outline-none cursor-default ${
-                  highlightedFields.has(index.name)
-                    ? "bg-blue-200 dark:bg-blue-800"
-                    : selected && activeIndex?.name == index.name
-                      ? nodeData.color
-                        ? "bg-black/10 dark:bg-white/10"
-                        : "bg-bg9 dark:bg-bg9dark"
-                      : nodeData.color
-                        ? "select-none"
-                        : "bbg-bg6 dark:bg-bg6dark select-none"
-                }`}
+                className={`text-center rounded-md outline-none cursor-default border-0 border-red-400 select-none   
+                  ${
+                    highlightedFields.has(index.name)
+                      ? "bg-blue-200 dark:bg-blue-800"
+                      : selected && activeIndex?.name === index.name
+                        ? "bg-blue-100 dark:bg-blue-700"
+                        : nodeData.color
+                          ? "select-none hover:bg-bg5 dark:hover:bg-bg5dark"
+                          : "bg-bg6 dark:bg-bg6dark select-none"
+                  }`}
               ></input>
               {isDraggingEdge && (
                 <div
                   style={{
-                    top: worldHeightField / 2 - worldHeightField / 6,
+                    top:
+                      worldHeightField * (numFields + i) +
+                      (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
+                    left: `-${worldHeightField * 0.15}px`,
                   }}
                   ref={inputRef}
-                  className="absolute left-0 rounded-r-full bg-green-300
+                  className="absolute  rounded-full bg-green-300
                     cursor-crosshair hover:bg-red-400 pointer-events-auto"
                   onMouseEnter={(e) =>
                     handleMouseEnterInput(inputRef, e, index.name)
@@ -551,27 +569,30 @@ const EditorNode: React.FC<{
               {selected && activeIndex?.name === index.name && (
                 <div
                   style={{
-                    top: worldHeightField / 2 - worldHeightField / 6,
+                    top:
+                      worldHeightField * (numFields + i) +
+                      (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
+                    right: `-${worldHeightField * 0.15}px`,
                   }}
                   ref={outputRef}
-                  className="absolute right-0 rounded-l-full bg-yellow-300
+                  className="absolute rounded-full bg-yellow-300
                     cursor-crosshair hover:bg-red-400 pointer-events-auto"
                   onMouseDown={(e) =>
                     handleMouseDownOutput(outputRef, e, index.name)
                   }
                 ></div>
               )}
-              {selected && activeIndex?.name == index.name && (
+              {/* {selected && activeIndex?.name == index.name && (
                 <>
                   <div
                     style={{
                       top: worldHeightField / 2 - worldHeightField / 6,
                     }}
                     ref={outputRef}
-                    className="absolute -right-7 rounded-l-full 
-                      cursor-pointer pointer-events-auto"
+                    className="absolute -right-7 rounded-l-full
+                    cursor-pointer pointer-events-auto"
                     onMouseDown={(e) => moveIndexDown(index)}
                   >
                     <ChevrodnDownIcon
@@ -584,8 +605,8 @@ const EditorNode: React.FC<{
                       top: worldHeightField / 2 - worldHeightField / 6,
                     }}
                     ref={outputRef}
-                    className="absolute -right-14 rounded-l-full 
-                      cursor-pointer pointer-events-auto"
+                    className="absolute -right-14 rounded-l-full
+                    cursor-pointer pointer-events-auto"
                     onMouseDown={(e) => moveIndexUp(index)}
                   >
                     <ChevrodnDownIcon
@@ -595,8 +616,9 @@ const EditorNode: React.FC<{
                     ></ChevrodnDownIcon>
                   </div>
                 </>
-              )}
-            </div>
+              )} */}
+            </>
+            // </div>
           );
         })}
         <input
@@ -621,7 +643,7 @@ const EditorNode: React.FC<{
             backgroundColor: nodeData.color ? "transparent" : undefined,
           }}
           className={`${nodeData.color ? "" : "bbg-bg6 dark:bg-bg6dark"} text-center p-1 rounded-none outline-none`}
-        ></input> */}
+        ></input>
       </div>
     );
   },

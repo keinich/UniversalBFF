@@ -350,7 +350,7 @@ const SchemaEditor: React.FC<{
   }
 
   function handleMouseDown(e: any) {
-    // e.preventDefault()
+    e.preventDefault();
     e.stopPropagation();
 
     if (e.button == 0) {
