@@ -23,6 +23,7 @@ import { Position } from "../bl/Position";
 import EditorToolbar from "./EditorToolbar";
 import EditorProperties from "./EditorProperties";
 import { BoardState } from "../bl/BoardState";
+import EditorEdge2 from "./EditorEdge2";
 
 // Constants for node sizing
 const NODE_WIDTH = 220;
@@ -615,6 +616,8 @@ const SchemaEditor: React.FC<{
                   selected={selectedNode ? selectedNode == n.id : false}
                   camera={camera}
                   onMouseDown={handleMouseDownNode}
+                  setSelectedNode={setSelectedNode}
+                  setSelectedEdge={setSelectedEdge}
                   onMouseEnterInput={handleMouseEnterInput}
                   onMouseDownOutput={handleMouseDownOutput}
                   onMouseLeaveInput={handleMouseLeaveInput}
@@ -669,29 +672,65 @@ const SchemaEditor: React.FC<{
 
                 const startDimensions = calculateNodeDimensions(startNode);
                 const endDimensions = calculateNodeDimensions(endNode);
+                const indexOfStartField =
+                  startNode.entitySchema.fields.findIndex(
+                    (f) => f.name === edge.outputFieldName,
+                  ) + 2;
+                const indexOfEndField =
+                  endNode.entitySchema.fields.findIndex(
+                    (f) => f.name === edge.inputFieldName,
+                  ) + 2;
+                let startPos = {
+                  x: startNode.currentPosition.x + startDimensions.width,
+                  y:
+                    startNode.currentPosition.y +
+                    indexOfStartField * NODE_FIELD_HEIGHT,
+                };
 
+                let endPos = {
+                  x: endNode.currentPosition.x,
+                  y:
+                    endNode.currentPosition.y +
+                    indexOfEndField * NODE_FIELD_HEIGHT,
+                };
+                // startPos = getViewPosFromWorldPos(
+                //   startNode.currentPosition,
+                //   camera,
+                // );
+                // endPos = getViewPosFromWorldPos(
+                //   endNode.currentPosition,
+                //   camera,
+                // );
+                console.log("Rendering edge with positions", {
+                  startPos,
+                  endPos,
+                });
                 return (
-                  <EditorEdge
+                  <EditorEdge2
                     key={i}
                     selected={selectedEdge ? selectedEdge.id == edge.id : false}
                     highlighted={highlightedEdges.has(edge.id)}
                     isNew={false}
-                    startNode={{
-                      position: startNode.currentPosition,
-                      width: startDimensions.width,
-                      height: startDimensions.height,
-                    }}
-                    endNode={{
-                      position: endNode.currentPosition,
-                      width: endDimensions.width,
-                      height: endDimensions.height,
-                    }}
+                    // startNode={{
+                    //   position: startNode.currentPosition,
+                    //   width: startDimensions.width,
+                    //   height: startDimensions.height,
+                    // }}
+                    // endNode={{
+                    //   position: endNode.currentPosition,
+                    //   width: endDimensions.width,
+                    //   height: endDimensions.height,
+                    // }}
                     camera={camera}
+                    startPos={getViewPosFromWorldPos(startPos, camera)}
+                    endPos={getViewPosFromWorldPos(endPos, camera)}
+                    // startPos={startPos}
+                    // endPos={endPos}
                     onMouseDownEdge={() => {
                       handleEdgeSelection(edge);
                     }}
                     onClickDelete={() => {}}
-                  ></EditorEdge>
+                  ></EditorEdge2>
                 );
               })}
               {contextMenuPos && (

@@ -10,6 +10,7 @@ import {
 } from "../bl/BoardUtils";
 import EditorNodeField from "./EditorNodeField";
 import ChevrodnDownIcon from "ushell-common-components/dist/cjs/_Icons/ChevrodnDownIcon";
+import { EdgeData } from "../bl/EdgeData";
 
 const EditorNode: React.FC<{
   id: number;
@@ -19,6 +20,8 @@ const EditorNode: React.FC<{
   selected: boolean;
   camera: Camera;
   onMouseDown: (id: number, e: any) => void;
+  setSelectedNode: (id: number | null) => void;
+  setSelectedEdge: (edge: EdgeData | null) => void;
   onMouseDownOutput: (
     posX: number,
     posY: number,
@@ -55,6 +58,8 @@ const EditorNode: React.FC<{
     selected,
     camera,
     onMouseDown,
+    setSelectedNode,
+    setSelectedEdge,
     onMouseDownOutput,
     onMouseEnterInput,
     onMouseLeaveInput,
@@ -296,6 +301,8 @@ const EditorNode: React.FC<{
           width: `${worldWidth}px`,
           height: `${height}px`,
           transform: `translate(${viewPos.x}px, ${viewPos.y}px`,
+          // top: `-${height / 2}px`,
+          // left: `-${worldWidth / 2}px`,
           borderTop: `${worldHeightField * 0.15}px solid`,
           // backgroundColor: nodeData.color || undefined,
         }}
@@ -308,7 +315,7 @@ const EditorNode: React.FC<{
           setInputMode(false);
           // setActiveField('')
         }}
-        className={`flex flex-col relative rounded-md cursor-grab border-2 gap-0 z-10
+        className={`flex flex-col absolute rounded-md cursor-grab border-2 gap-0 z-10
           bg-content dark:bg-contentDark
         shadow-md hover:shadow-2xl ${
           nodeData.color ? "" : "bg-bg6 dark:bg-bg6dark"
@@ -370,6 +377,8 @@ const EditorNode: React.FC<{
                   }
                   setActiveField(f);
                   onFieldClick(id, f);
+                  setSelectedNode(id);
+                  setSelectedEdge(null);
                   // onMouseDown(id, e);
                 }}
                 onFocus={() => setActiveField(f)}
@@ -401,7 +410,7 @@ const EditorNode: React.FC<{
                           : "bg-bg6 dark:bg-bg6dark select-none"
                   }`}
               ></input>
-              {isDraggingEdge && (
+              {(isDraggingEdge || true) && (
                 <div
                   style={{
                     top:
@@ -419,7 +428,7 @@ const EditorNode: React.FC<{
                   onMouseLeave={() => onMouseLeaveInput(id, f.name)}
                 ></div>
               )}
-              {selected && activeField?.name === f.name && (
+              {((selected && activeField?.name === f.name) || true) && (
                 <div
                   style={{
                     top:
@@ -436,7 +445,7 @@ const EditorNode: React.FC<{
                   }
                 ></div>
               )}
-              {selected && activeField?.name == f.name && (
+              {((selected && activeField?.name === f.name) || true) && (
                 <>
                   {/* <div
                     style={{
@@ -478,8 +487,8 @@ const EditorNode: React.FC<{
           id={nodeData.entitySchema.name + "_new"}
           onMouseDown={(e: any) => {
             e.stopPropagation();
-
-            onMouseDown(id, e);
+            setSelectedNode(id);
+            setSelectedEdge(null);
           }}
           onKeyDown={(e: any) => {
             handleKeyDownInputField(null, e);
@@ -515,9 +524,9 @@ const EditorNode: React.FC<{
                   if (index.name !== activeIndex?.name) {
                     setInputMode(false);
                   }
-                  // onFieldSelected(f)
+                  setSelectedNode(id);
+                  setSelectedEdge(null);
                   setActiveIndex(index);
-                  // onMouseDown(id, e);
                 }}
                 onFocus={() => setActiveIndex(index)}
                 defaultValue={index.name}
@@ -625,8 +634,8 @@ const EditorNode: React.FC<{
           id={nodeData.entitySchema.name + "_newIndex"}
           onMouseDown={(e: any) => {
             e.stopPropagation();
-
-            onMouseDown(id, e);
+            setSelectedNode(id);
+            setSelectedEdge(null);
           }}
           onKeyDown={(e: any) => {
             handleKeyDownInputIndex(null, e);
