@@ -684,7 +684,8 @@ const SchemaEditor: React.FC<{
                   x: startNode.currentPosition.x + startDimensions.width,
                   y:
                     startNode.currentPosition.y +
-                    indexOfStartField * NODE_FIELD_HEIGHT,
+                    indexOfStartField * NODE_FIELD_HEIGHT -
+                    (0.75 * NODE_FIELD_HEIGHT) / 2,
                 };
 
                 let endPos = {

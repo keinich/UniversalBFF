@@ -169,11 +169,7 @@ const EditorNode: React.FC<{
       const viewPos = getBoardPosFromWindowPos(windowPos);
       const worldPos = getWorldPosFromViewPos(viewPos, camera);
 
-      // onMouseDownOutput(centerX, el.getBoundingClientRect().bottom, id, index)
-      // onMouseDownOutput(centerX + camera.pos.x, centerY + camera.pos.y, id, index)
       onMouseDownOutput(worldPos.x, worldPos.y, id, fieldName);
-      // onMouseDownOutput(e.clientX, e.clientY - 100, id, index)
-      // onMouseDownOutput(e.clientX, ref.current.clientY, id, index)
     }
 
     function handleMouseEnterInput(ref: any, e: any, fieldName: string) {
@@ -303,7 +299,7 @@ const EditorNode: React.FC<{
           transform: `translate(${viewPos.x}px, ${viewPos.y}px`,
           // top: `-${height / 2}px`,
           // left: `-${worldWidth / 2}px`,
-          borderTop: `${worldHeightField * 0.15}px solid`,
+          // borderTop: `${worldHeightField * 0.15 * 0}px solid`,
           // backgroundColor: nodeData.color || undefined,
         }}
         onMouseDown={(e: any) => {
@@ -339,13 +335,16 @@ const EditorNode: React.FC<{
             width: `${worldWidth - 4}px`,
             height: `${worldHeightField}px`,
             fontSize: worldHeightField / 2.5,
-            borderColor: nodeData.color || "undefined",
+            borderTopLeftRadius: "0.25rem" /* 2px */,
+            borderTopRightRadius: "0.25rem" /* 2px */,
+            backgroundColor: nodeData.color || "undefined",
+            // backgroundColor: "red",
             padding: worldHeightField * 0.15,
             // margin: worldHeightField * 0.15,
             borderBottomWidth: `${worldHeightField * 0.01}px`,
           }}
-          className={`bg-bg4 dark:bg-bg4dark text-center border-0 
-          cursor-grab outline-none rounded-t-lg flex align-middle justify-center`}
+          className={` text-center border-0 
+          cursor-grab outline-none rounded-t-sm flex align-middle justify-center`}
         >
           <input
             value={entityName}
@@ -372,7 +371,7 @@ const EditorNode: React.FC<{
                 onMouseDown={(e: any) => {
                   e.stopPropagation();
                   console.log("mouse down field");
-                  if (f.name != activeField?.name) {
+                  if (f.name !== activeField?.name) {
                     setInputMode(false);
                   }
                   setActiveField(f);
@@ -426,6 +425,9 @@ const EditorNode: React.FC<{
                     handleMouseEnterInput(inputRef, e, f.name)
                   }
                   onMouseLeave={() => onMouseLeaveInput(id, f.name)}
+                  onMouseDown={(e) =>
+                    handleMouseDownOutput(inputRef, e, f.name)
+                  }
                 ></div>
               )}
               {((selected && activeField?.name === f.name) || true) && (
@@ -435,7 +437,7 @@ const EditorNode: React.FC<{
                       worldHeightField * (i + 1) + (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
-                    right: `-${worldHeightField * 0.15}px`,
+                    right: `-${worldHeightField / 6}px`,
                   }}
                   ref={outputRef}
                   className="absolute rounded-full bg-yellow-300
