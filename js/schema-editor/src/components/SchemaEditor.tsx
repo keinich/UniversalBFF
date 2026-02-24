@@ -684,15 +684,18 @@ const SchemaEditor: React.FC<{
                   x: startNode.currentPosition.x + startDimensions.width,
                   y:
                     startNode.currentPosition.y +
+                    NODE_FIELD_HEIGHT * 0.01 +
                     indexOfStartField * NODE_FIELD_HEIGHT -
-                    (0.75 * NODE_FIELD_HEIGHT) / 2,
+                    (1.0 * NODE_FIELD_HEIGHT) / 2,
                 };
 
                 let endPos = {
                   x: endNode.currentPosition.x,
                   y:
                     endNode.currentPosition.y +
-                    indexOfEndField * NODE_FIELD_HEIGHT,
+                    NODE_FIELD_HEIGHT * 0.01 +
+                    indexOfEndField * NODE_FIELD_HEIGHT -
+                    (1.0 * NODE_FIELD_HEIGHT) / 2,
                 };
                 // startPos = getViewPosFromWorldPos(
                 //   startNode.currentPosition,
