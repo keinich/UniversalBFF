@@ -417,9 +417,10 @@ const EditorNode: React.FC<{
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
                     left: `-${worldHeightField * 0.15}px`,
+                    backgroundColor: `${nodeData.color}`,
                   }}
                   ref={inputRef}
-                  className="absolute  rounded-full bg-green-300
+                  className="absolute  rounded-full
                     cursor-crosshair hover:bg-red-400 pointer-events-auto"
                   onMouseEnter={(e) =>
                     handleMouseEnterInput(inputRef, e, f.name)
@@ -438,9 +439,10 @@ const EditorNode: React.FC<{
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
                     right: `-${worldHeightField / 6}px`,
+                    backgroundColor: nodeData.color,
                   }}
                   ref={outputRef}
-                  className="absolute rounded-full bg-yellow-300
+                  className="absolute rounded-full
                     cursor-crosshair hover:bg-red-400 pointer-events-auto"
                   onMouseDown={(e) =>
                     handleMouseDownOutput(outputRef, e, f.name)
@@ -558,7 +560,7 @@ const EditorNode: React.FC<{
                           : "bg-bg6 dark:bg-bg6dark select-none"
                   }`}
               ></input>
-              {isDraggingEdge && (
+              {(isDraggingEdge || true) && (
                 <div
                   style={{
                     top:
@@ -567,9 +569,10 @@ const EditorNode: React.FC<{
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
                     left: `-${worldHeightField * 0.15}px`,
+                    backgroundColor: nodeData.color,
                   }}
                   ref={inputRef}
-                  className="absolute  rounded-full bg-green-300
+                  className="absolute  rounded-full
                     cursor-crosshair hover:bg-red-400 pointer-events-auto"
                   onMouseEnter={(e) =>
                     handleMouseEnterInput(inputRef, e, index.name)
@@ -577,18 +580,21 @@ const EditorNode: React.FC<{
                   onMouseLeave={() => onMouseLeaveInput(id, index.name)}
                 ></div>
               )}
-              {selected && activeIndex?.name === index.name && (
+              {((selected && activeIndex?.name === index.name) || true) && (
                 <div
                   style={{
                     top:
                       worldHeightField * (numFields + i) +
+                      separationBorderHeight +
+                      separationBorderMargin +
                       (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
                     right: `-${worldHeightField * 0.15}px`,
+                    backgroundColor: nodeData.color,
                   }}
                   ref={outputRef}
-                  className="absolute rounded-full bg-yellow-300
+                  className="absolute rounded-full 
                     cursor-crosshair hover:bg-red-400 pointer-events-auto"
                   onMouseDown={(e) =>
                     handleMouseDownOutput(outputRef, e, index.name)

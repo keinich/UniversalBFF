@@ -672,10 +672,20 @@ const SchemaEditor: React.FC<{
 
                 const startDimensions = calculateNodeDimensions(startNode);
                 const endDimensions = calculateNodeDimensions(endNode);
-                const indexOfStartField =
+                let indexOfStartField =
                   startNode.entitySchema.fields.findIndex(
                     (f) => f.name === edge.outputFieldName,
                   ) + 2;
+                let indicesOffset = 0;
+                if (indexOfStartField < 2) {
+                  indexOfStartField =
+                    startNode.entitySchema.indices.findIndex(
+                      (i) => i.name === edge.outputFieldName,
+                    ) +
+                    3 +
+                    startNode.entitySchema.fields.length;
+                  indicesOffset = (0.03 + 0.1) * NODE_FIELD_HEIGHT;
+                }
                 const indexOfEndField =
                   endNode.entitySchema.fields.findIndex(
                     (f) => f.name === edge.inputFieldName,
@@ -684,6 +694,7 @@ const SchemaEditor: React.FC<{
                   x: startNode.currentPosition.x + startDimensions.width,
                   y:
                     startNode.currentPosition.y +
+                    +indicesOffset +
                     NODE_FIELD_HEIGHT * 0.01 +
                     indexOfStartField * NODE_FIELD_HEIGHT -
                     (1.0 * NODE_FIELD_HEIGHT) / 2,
@@ -697,6 +708,10 @@ const SchemaEditor: React.FC<{
                     indexOfEndField * NODE_FIELD_HEIGHT -
                     (1.0 * NODE_FIELD_HEIGHT) / 2,
                 };
+                if (startPos.x - startDimensions.width / 2 > endPos.x) {
+                  startPos.x = startNode.currentPosition.x;
+                  endPos.x = endNode.currentPosition.x + endDimensions.width;
+                }
                 // startPos = getViewPosFromWorldPos(
                 //   startNode.currentPosition,
                 //   camera,
