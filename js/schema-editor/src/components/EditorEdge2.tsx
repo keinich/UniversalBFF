@@ -21,6 +21,7 @@ const EditorEdge2: React.FC<{
   camera: Camera;
   onMouseDownEdge: () => void;
   onClickDelete: () => void;
+  initialDirectionToRight?: boolean;
 }> = ({
   selected,
   highlighted = false,
@@ -30,6 +31,7 @@ const EditorEdge2: React.FC<{
   camera,
   onMouseDownEdge,
   onClickDelete,
+  initialDirectionToRight = true,
 }) => {
   const [hovering, setHovering] = React.useState(false);
   function handleMouseDownEdge(e: any) {
@@ -48,9 +50,23 @@ const EditorEdge2: React.FC<{
   const width = Math.max(1, maxX - minX);
   const height = Math.max(1, maxY - minY);
 
-  // Path from start to end (straight line)
-  // Always subtract minX/minY from both points so the line fits the SVG
-  const pathD = `M ${startPos.x - minX} ${startPos.y - minY} L ${endPos.x - minX} ${endPos.y - minY}`;
+  // Use a cubic Bezier curve for a smooth drawSQL-like edge
+  // Always bow horizontally away from the start point, regardless of direction
+  const dx = endPos.x - startPos.x;
+  const curve = Math.max(40, Math.abs(dx) * 0.5);
+  let c1x, c2x;
+  if (dx >= 0) {
+    // End is to the right: bow right
+    c1x = startPos.x - minX + curve;
+    c2x = endPos.x - minX - curve;
+  } else {
+    // End is to the left: bow left
+    c1x = startPos.x - minX - curve;
+    c2x = endPos.x - minX + curve;
+  }
+  const c1y = startPos.y - minY;
+  const c2y = endPos.y - minY;
+  const pathD = `M ${startPos.x - minX} ${startPos.y - minY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${endPos.x - minX} ${endPos.y - minY}`;
 
   let strokeColor = "stroke-pink-500";
   if (selected) {
