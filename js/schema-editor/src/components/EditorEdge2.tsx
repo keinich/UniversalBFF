@@ -58,42 +58,45 @@ const EditorEdge2: React.FC<{
   // Corner radius – small enough never to exceed a segment's half-length.
   const r = Math.min(8, seg1 * 0.4, seg2 * 0.4, segV * 0.4);
 
-  let pathD: string;
-
-  if (segV < 1) {
-    // Start and end are on the same Y level: single horizontal line.
-    pathD = `M ${startPos.x} ${startPos.y} H ${endPos.x}`;
-  } else if (r < 1) {
-    // Segments too short for visible rounding – use sharp 90° corners.
-    pathD = `M ${startPos.x} ${startPos.y} H ${pivotX} V ${endPos.y} H ${endPos.x}`;
-  } else {
-    // Rounded 90° corners via quadratic bezier curves.
-    const sign1X = pivotX >= startPos.x ? 1 : -1; // horizontal direction, start → pivot
-    const signY = dy >= 0 ? 1 : -1;                // vertical direction
-    const sign2X = endPos.x >= pivotX ? 1 : -1;    // horizontal direction, pivot → end
-
-    pathD = [
-      `M ${startPos.x} ${startPos.y}`,
-      // Approach first corner
-      `H ${pivotX - sign1X * r}`,
-      // Rounded corner: horizontal → vertical
-      `Q ${pivotX} ${startPos.y} ${pivotX} ${startPos.y + signY * r}`,
-      // Vertical segment
-      `V ${endPos.y - signY * r}`,
-      // Rounded corner: vertical → horizontal
-      `Q ${pivotX} ${endPos.y} ${pivotX + sign2X * r} ${endPos.y}`,
-      // Final horizontal segment to end
-      `H ${endPos.x}`,
-    ].join(" ");
-  }
-
-  // SVG bounding box (overflow:visible lets the path render outside these
-  // bounds if needed, but sizing it correctly helps pointer-event hit testing).
+  // SVG bounding box – the SVG is placed at (minX, minY) so all path
+  // coordinates must be expressed relative to that origin.
   const pad = 2;
   const minX = Math.min(startPos.x, endPos.x, pivotX) - pad;
   const minY = Math.min(startPos.y, endPos.y) - pad;
   const maxX = Math.max(startPos.x, endPos.x, pivotX) + pad;
   const maxY = Math.max(startPos.y, endPos.y) + pad;
+
+  // Translate all coordinates into SVG-local space.
+  const ox = minX; // SVG origin X in screen space
+  const oy = minY; // SVG origin Y in screen space
+
+  const toLocal = (x: number, y: number) =>
+    `${x - ox} ${y - oy}`;
+
+  let pathDLocal: string;
+
+  if (segV < 1) {
+    pathDLocal = `M ${toLocal(startPos.x, startPos.y)} H ${endPos.x - ox}`;
+  } else if (r < 1) {
+    pathDLocal =
+      `M ${toLocal(startPos.x, startPos.y)}` +
+      ` H ${pivotX - ox}` +
+      ` V ${endPos.y - oy}` +
+      ` H ${endPos.x - ox}`;
+  } else {
+    const sign1X = pivotX >= startPos.x ? 1 : -1;
+    const signY = dy >= 0 ? 1 : -1;
+    const sign2X = endPos.x >= pivotX ? 1 : -1;
+
+    pathDLocal = [
+      `M ${toLocal(startPos.x, startPos.y)}`,
+      `H ${pivotX - sign1X * r - ox}`,
+      `Q ${pivotX - ox} ${startPos.y - oy} ${pivotX - ox} ${startPos.y + signY * r - oy}`,
+      `V ${endPos.y - signY * r - oy}`,
+      `Q ${pivotX - ox} ${endPos.y - oy} ${pivotX + sign2X * r - ox} ${endPos.y - oy}`,
+      `H ${endPos.x - ox}`,
+    ].join(" ");
+  }
 
   const strokeColor = highlighted ? "#3b82f6" : selected ? "#f59e42" : "#888";
 
@@ -113,7 +116,7 @@ const EditorEdge2: React.FC<{
     >
       {/* Wide transparent path for easy click/hover hit-testing */}
       <path
-        d={pathD}
+        d={pathDLocal}
         stroke="transparent"
         className="cursor-pointer"
         strokeWidth={20}
@@ -127,7 +130,7 @@ const EditorEdge2: React.FC<{
       <path
         className={`pointer-events-auto fill-transparent cursor-pointer
           ${hovering ? "stroke-opacity-100" : "stroke-opacity-50"}`}
-        d={pathD}
+        d={pathDLocal}
         stroke={strokeColor}
         strokeWidth={2}
         fill="none"
