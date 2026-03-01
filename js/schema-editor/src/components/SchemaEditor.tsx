@@ -670,81 +670,120 @@ const SchemaEditor: React.FC<{
 
                 if (!startNode || !endNode) return null;
 
-                const startDimensions = calculateNodeDimensions(startNode);
-                const endDimensions = calculateNodeDimensions(endNode);
-                let indexOfStartField =
+                // Compute edge endpoints in view space to exactly match handle
+                // center positions, accounting for the node's 2px border.
+                //
+                // In EditorNode the handles are absolutely positioned children
+                // of the node div. Their `top`/`left`/`right` values are
+                // relative to the node's content-box (i.e. inset by BORDER px).
+                // The handle sizing/positioning rules (after CSS fix) are:
+                //   width = height = wh/3
+                //   field  input  (left):  left:  -wh/6  → center at content-box left  edge
+                //   field  output (right): right: -wh/6  → center at content-box right edge
+                //   index  input  (left):  left:  -wh/6  → center at content-box left  edge
+                //   index  output (right): right: -wh/6  → center at content-box right edge
+                //
+                // Field handle center Y (view-space, from node border-box top):
+                //   BORDER + wh*(fieldIndex+1) + wh/3 + wh/6
+                //   = BORDER + wh*(fieldIndex+1) + wh/2
+                //
+                // Index handle center Y (view-space, from node border-box top):
+                //   BORDER + wh*numFields + wh*indexIndex + sepH + sepM + wh/3 + wh/6
+                //   = BORDER + wh*(numFields+indexIndex) + sepH + sepM + wh/2
+                //   where numFields = fields.length + 2 (matches EditorNode)
+
+                const BORDER = 2; // matches border-2 class on EditorNode
+                const wh = camera.scale * NODE_FIELD_HEIGHT;
+                const ww = camera.scale * NODE_WIDTH;
+
+                const startNodeViewPos = getViewPosFromWorldPos(
+                  startNode.currentPosition,
+                  camera,
+                );
+                const endNodeViewPos = getViewPosFromWorldPos(
+                  endNode.currentPosition,
+                  camera,
+                );
+
+                // --- start node handle center Y ---
+                const startFieldIdx =
                   startNode.entitySchema.fields.findIndex(
                     (f) => f.name === edge.outputFieldName,
-                  ) + 2;
-                let indicesOffset = 0;
-                if (indexOfStartField < 2) {
-                  indexOfStartField =
+                  );
+                let startCenterY: number;
+                if (startFieldIdx >= 0) {
+                  startCenterY =
+                    startNodeViewPos.y +
+                    BORDER +
+                    wh * (startFieldIdx + 1) +
+                    wh / 2;
+                } else {
+                  const startIndexIdx =
                     startNode.entitySchema.indices.findIndex(
-                      (i) => i.name === edge.outputFieldName,
-                    ) +
-                    3 +
-                    startNode.entitySchema.fields.length;
-                  indicesOffset = (0.03 + 0.1) * NODE_FIELD_HEIGHT;
+                      (idx) => idx.name === edge.outputFieldName,
+                    );
+                  // numFields from EditorNode: fields.length + 2 (header + new-field input)
+                  const numFieldRows =
+                    startNode.entitySchema.fields.length + 2;
+                  const sepH = wh * 0.03; // separationBorderHeight
+                  const sepM = wh * 0.1; // separationBorderMargin
+                  startCenterY =
+                    startNodeViewPos.y +
+                    BORDER +
+                    wh * (numFieldRows + startIndexIdx) +
+                    sepH +
+                    sepM +
+                    wh / 2;
                 }
-                const indexOfEndField =
-                  endNode.entitySchema.fields.findIndex(
-                    (f) => f.name === edge.inputFieldName,
-                  ) + 2;
-                let startPos = {
-                  x: startNode.currentPosition.x + startDimensions.width,
-                  y:
-                    startNode.currentPosition.y +
-                    +indicesOffset +
-                    NODE_FIELD_HEIGHT * 0.01 +
-                    indexOfStartField * NODE_FIELD_HEIGHT -
-                    (1.0 * NODE_FIELD_HEIGHT) / 2,
-                };
 
-                let endPos = {
-                  x: endNode.currentPosition.x,
-                  y:
-                    endNode.currentPosition.y +
-                    NODE_FIELD_HEIGHT * 0.01 +
-                    indexOfEndField * NODE_FIELD_HEIGHT -
-                    (1.0 * NODE_FIELD_HEIGHT) / 2,
-                };
-                if (startPos.x - startDimensions.width / 2 > endPos.x) {
-                  startPos.x = startNode.currentPosition.x;
-                  endPos.x = endNode.currentPosition.x + endDimensions.width;
+                // --- end node handle center Y ---
+                const endFieldIdx = endNode.entitySchema.fields.findIndex(
+                  (f) => f.name === edge.inputFieldName,
+                );
+                let endCenterY: number;
+                if (endFieldIdx >= 0) {
+                  endCenterY =
+                    endNodeViewPos.y + BORDER + wh * (endFieldIdx + 1) + wh / 2;
+                } else {
+                  const endIndexIdx = endNode.entitySchema.indices.findIndex(
+                    (idx) => idx.name === edge.inputFieldName,
+                  );
+                  const numFieldRows = endNode.entitySchema.fields.length + 2;
+                  const sepH = wh * 0.03;
+                  const sepM = wh * 0.1;
+                  endCenterY =
+                    endNodeViewPos.y +
+                    BORDER +
+                    wh * (numFieldRows + endIndexIdx) +
+                    sepH +
+                    sepM +
+                    wh / 2;
                 }
-                // startPos = getViewPosFromWorldPos(
-                //   startNode.currentPosition,
-                //   camera,
-                // );
-                // endPos = getViewPosFromWorldPos(
-                //   endNode.currentPosition,
-                //   camera,
-                // );
-                console.log("Rendering edge with positions", {
-                  startPos,
-                  endPos,
-                });
+
+                // Default: start from right (output) handle, end at left (input) handle.
+                // Output handle center X = content-box right edge = viewPos.x + ww - BORDER
+                // Input  handle center X = content-box left  edge = viewPos.x + BORDER
+                let startCenterX = startNodeViewPos.x + ww - BORDER;
+                let endCenterX = endNodeViewPos.x + BORDER;
+
+                // If the start node sits to the right of the end node, flip sides.
+                if (startNodeViewPos.x + ww / 2 > endNodeViewPos.x + ww / 2) {
+                  startCenterX = startNodeViewPos.x + BORDER;
+                  endCenterX = endNodeViewPos.x + ww - BORDER;
+                }
+
+                const startPos = { x: startCenterX, y: startCenterY };
+                const endPos = { x: endCenterX, y: endCenterY };
+
                 return (
                   <EditorEdge2
                     key={i}
                     selected={selectedEdge ? selectedEdge.id == edge.id : false}
                     highlighted={highlightedEdges.has(edge.id)}
                     isNew={false}
-                    // startNode={{
-                    //   position: startNode.currentPosition,
-                    //   width: startDimensions.width,
-                    //   height: startDimensions.height,
-                    // }}
-                    // endNode={{
-                    //   position: endNode.currentPosition,
-                    //   width: endDimensions.width,
-                    //   height: endDimensions.height,
-                    // }}
                     camera={camera}
-                    startPos={getViewPosFromWorldPos(startPos, camera)}
-                    endPos={getViewPosFromWorldPos(endPos, camera)}
-                    // startPos={startPos}
-                    // endPos={endPos}
+                    startPos={startPos}
+                    endPos={endPos}
                     onMouseDownEdge={() => {
                       handleEdgeSelection(edge);
                     }}

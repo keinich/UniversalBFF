@@ -416,7 +416,7 @@ const EditorNode: React.FC<{
                       worldHeightField * (i + 1) + (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
-                    left: `-${worldHeightField * 0.15}px`,
+                    left: `-${worldHeightField / 6}px`,
                     backgroundColor: `${nodeData.color}`,
                   }}
                   ref={inputRef}
@@ -570,7 +570,7 @@ const EditorNode: React.FC<{
                       (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
-                    left: `-${worldHeightField * 0.15}px`,
+                    left: `-${worldHeightField / 6}px`,
                     backgroundColor: nodeData.color,
                   }}
                   ref={inputRef}
@@ -592,7 +592,7 @@ const EditorNode: React.FC<{
                       (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
-                    right: `-${worldHeightField * 0.15}px`,
+                    right: `-${worldHeightField / 6}px`,
                     backgroundColor: nodeData.color,
                   }}
                   ref={outputRef}
