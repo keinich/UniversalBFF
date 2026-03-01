@@ -765,9 +765,11 @@ const SchemaEditor: React.FC<{
                 // Input  handle center X = content-box left  edge = viewPos.x + BORDER
                 let startCenterX = startNodeViewPos.x + ww - BORDER;
                 let endCenterX = endNodeViewPos.x + BORDER;
+                let startSide: "left" | "right" = "right";
 
                 // If the start node sits to the right of the end node, flip sides.
                 if (startNodeViewPos.x + ww / 2 > endNodeViewPos.x + ww / 2) {
+                  startSide = "left";
                   startCenterX = startNodeViewPos.x + BORDER;
                   endCenterX = endNodeViewPos.x + ww - BORDER;
                 }
@@ -784,6 +786,7 @@ const SchemaEditor: React.FC<{
                     camera={camera}
                     startPos={startPos}
                     endPos={endPos}
+                    startSide={startSide}
                     onMouseDownEdge={() => {
                       handleEdgeSelection(edge);
                     }}

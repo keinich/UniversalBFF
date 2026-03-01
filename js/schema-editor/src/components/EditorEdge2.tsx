@@ -1,16 +1,5 @@
 import React from "react";
 import { Camera } from "../bl/Camera";
-import { Position } from "../bl/Position";
-import {
-  calculateNodeConnectionPoints,
-  getViewPosFromWorldPos,
-} from "../bl/BoardUtils";
-
-interface NodeInfo {
-  position: Position;
-  width: number;
-  height: number;
-}
 
 const EditorEdge2: React.FC<{
   selected: boolean;
@@ -18,62 +7,96 @@ const EditorEdge2: React.FC<{
   isNew: boolean;
   startPos: { x: number; y: number };
   endPos: { x: number; y: number };
+  /** Which side of the start node the edge exits from */
+  startSide: "left" | "right";
   camera: Camera;
   onMouseDownEdge: () => void;
   onClickDelete: () => void;
-  initialDirectionToRight?: boolean;
 }> = ({
   selected,
   highlighted = false,
   isNew,
   startPos,
   endPos,
+  startSide,
   camera,
   onMouseDownEdge,
   onClickDelete,
-  initialDirectionToRight = true,
 }) => {
   const [hovering, setHovering] = React.useState(false);
+
   function handleMouseDownEdge(e: any) {
     e.stopPropagation();
-
     onMouseDownEdge();
   }
 
-  // Calculate the bounding box for the SVG
+  // --- Orthogonal (Manhattan) routing ---
+  // The path exits the start node horizontally, turns 90° at a pivot X,
+  // travels vertically to the end node's Y, turns 90° again, then enters
+  // the end node horizontally.  This guarantees the path never passes
+  // through the interior of either node.
 
-  // Always ensure width/height are at least 1, and handle negative direction
-  const minX = Math.min(startPos.x, endPos.x);
-  const minY = Math.min(startPos.y, endPos.y);
-  const maxX = Math.max(startPos.x, endPos.x);
-  const maxY = Math.max(startPos.y, endPos.y);
-  const width = Math.max(1, maxX - minX);
-  const height = Math.max(1, maxY - minY);
+  // Minimum length (px) for the first / last horizontal segment so the
+  // path visibly exits the node before turning.
+  const MIN_SEG = 30;
 
-  // Use a cubic Bezier curve for a smooth drawSQL-like edge
-  // Always bow horizontally away from the start point, regardless of direction
-  const dx = endPos.x - startPos.x;
-  const curve = Math.max(40, Math.abs(dx) * 0.5);
-  let c1x, c2x;
-  if (dx >= 0) {
-    // End is to the right: bow right
-    c1x = startPos.x - minX + curve;
-    c2x = endPos.x - minX - curve;
+  let pivotX: number;
+  if (startSide === "right") {
+    // Exit rightward: pivot must be at least MIN_SEG to the right.
+    pivotX = Math.max(startPos.x + MIN_SEG, (startPos.x + endPos.x) / 2);
   } else {
-    // End is to the left: bow left
-    c1x = startPos.x - minX - curve;
-    c2x = endPos.x - minX + curve;
+    // Exit leftward: pivot must be at least MIN_SEG to the left.
+    pivotX = Math.min(startPos.x - MIN_SEG, (startPos.x + endPos.x) / 2);
   }
-  const c1y = startPos.y - minY;
-  const c2y = endPos.y - minY;
-  const pathD = `M ${startPos.x - minX} ${startPos.y - minY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${endPos.x - minX} ${endPos.y - minY}`;
 
-  let strokeColor = "stroke-pink-500";
-  if (selected) {
-    strokeColor = "stroke-orange-400";
-  } else if (highlighted) {
-    strokeColor = "stroke-blue-400";
+  // Build the SVG path with rounded corners (quadratic bezier at each turn)
+  // so it looks polished rather than harsh.
+  const dy = endPos.y - startPos.y;
+  const seg1 = Math.abs(pivotX - startPos.x);
+  const seg2 = Math.abs(endPos.x - pivotX);
+  const segV = Math.abs(dy);
+  // Corner radius – small enough never to exceed a segment's half-length.
+  const r = Math.min(8, seg1 * 0.4, seg2 * 0.4, segV * 0.4);
+
+  let pathD: string;
+
+  if (segV < 1) {
+    // Start and end are on the same Y level: single horizontal line.
+    pathD = `M ${startPos.x} ${startPos.y} H ${endPos.x}`;
+  } else if (r < 1) {
+    // Segments too short for visible rounding – use sharp 90° corners.
+    pathD = `M ${startPos.x} ${startPos.y} H ${pivotX} V ${endPos.y} H ${endPos.x}`;
+  } else {
+    // Rounded 90° corners via quadratic bezier curves.
+    const sign1X = pivotX >= startPos.x ? 1 : -1; // horizontal direction, start → pivot
+    const signY = dy >= 0 ? 1 : -1;                // vertical direction
+    const sign2X = endPos.x >= pivotX ? 1 : -1;    // horizontal direction, pivot → end
+
+    pathD = [
+      `M ${startPos.x} ${startPos.y}`,
+      // Approach first corner
+      `H ${pivotX - sign1X * r}`,
+      // Rounded corner: horizontal → vertical
+      `Q ${pivotX} ${startPos.y} ${pivotX} ${startPos.y + signY * r}`,
+      // Vertical segment
+      `V ${endPos.y - signY * r}`,
+      // Rounded corner: vertical → horizontal
+      `Q ${pivotX} ${endPos.y} ${pivotX + sign2X * r} ${endPos.y}`,
+      // Final horizontal segment to end
+      `H ${endPos.x}`,
+    ].join(" ");
   }
+
+  // SVG bounding box (overflow:visible lets the path render outside these
+  // bounds if needed, but sizing it correctly helps pointer-event hit testing).
+  const pad = 2;
+  const minX = Math.min(startPos.x, endPos.x, pivotX) - pad;
+  const minY = Math.min(startPos.y, endPos.y) - pad;
+  const maxX = Math.max(startPos.x, endPos.x, pivotX) + pad;
+  const maxY = Math.max(startPos.y, endPos.y) + pad;
+
+  const strokeColor = highlighted ? "#3b82f6" : selected ? "#f59e42" : "#888";
+
   return (
     <svg
       style={{
@@ -82,27 +105,30 @@ const EditorEdge2: React.FC<{
         top: minY,
         pointerEvents: "none",
         overflow: "visible",
+        // z-index 20 keeps edges above nodes (nodes use z-10 / z-index:10)
+        zIndex: 20,
       }}
-      width={width}
-      height={height}
+      width={Math.max(1, maxX - minX)}
+      height={Math.max(1, maxY - minY)}
     >
+      {/* Wide transparent path for easy click/hover hit-testing */}
       <path
         d={pathD}
         stroke="transparent"
         className="cursor-pointer"
-        strokeWidth={20} // or any large value
+        strokeWidth={20}
         fill="none"
         pointerEvents="stroke"
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
         onMouseDown={handleMouseDownEdge}
       />
+      {/* Visible path */}
       <path
-        className={`pointer-events-auto stroke-2 fill-transparent cursor-pointer 
+        className={`pointer-events-auto fill-transparent cursor-pointer
           ${hovering ? "stroke-opacity-100" : "stroke-opacity-50"}`}
         d={pathD}
-        stroke={highlighted ? "#3b82f6" : selected ? "#f59e42" : "#888"}
-        // stroke={hovering ? "#3b82f6" : "#888"}
+        stroke={strokeColor}
         strokeWidth={2}
         fill="none"
         pointerEvents="stroke"
