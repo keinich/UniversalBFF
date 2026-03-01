@@ -1,6 +1,148 @@
 import React from "react";
 import { Camera } from "../bl/Camera";
 
+/** Bounding box of a node in view (screen) space */
+export interface NodeBounds {
+  x: number; // left edge
+  y: number; // top edge
+  w: number; // width
+  h: number; // height
+}
+
+// ─── Routing helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Build a smooth orthogonal SVG path through a list of axis-aligned waypoints.
+ * Consecutive waypoints must share either the same X or the same Y.
+ * Corners are softened with quadratic Bézier curves of radius `maxR`.
+ * All coordinates in the returned string are relative to (ox, oy).
+ */
+function buildRoundedPath(
+  pts: { x: number; y: number }[],
+  maxR: number,
+  ox: number,
+  oy: number,
+): string {
+  if (pts.length < 2) return "";
+  const lx = (x: number) => x - ox;
+  const ly = (y: number) => y - oy;
+
+  let d = `M ${lx(pts[0].x)} ${ly(pts[0].y)}`;
+
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i - 1];
+    const cur = pts[i];
+    const next = pts[i + 1] ?? null;
+
+    if (!next) {
+      // Last segment – go straight
+      if (cur.y === prev.y) d += ` H ${lx(cur.x)}`;
+      else d += ` V ${ly(cur.y)}`;
+      continue;
+    }
+
+    const seg1 = Math.abs(cur.x - prev.x) + Math.abs(cur.y - prev.y);
+    const seg2 = Math.abs(next.x - cur.x) + Math.abs(next.y - cur.y);
+    const r = Math.min(maxR, seg1 * 0.45, seg2 * 0.45);
+
+    if (r < 1) {
+      // Sharp corner
+      if (cur.y === prev.y) d += ` H ${lx(cur.x)}`;
+      else d += ` V ${ly(cur.y)}`;
+    } else if (cur.y === prev.y) {
+      // Horizontal → vertical corner
+      const sx = Math.sign(cur.x - prev.x);
+      const sy = Math.sign(next.y - cur.y);
+      d += ` H ${lx(cur.x - sx * r)}`;
+      d += ` Q ${lx(cur.x)} ${ly(cur.y)} ${lx(cur.x)} ${ly(cur.y + sy * r)}`;
+    } else {
+      // Vertical → horizontal corner
+      const sy = Math.sign(cur.y - prev.y);
+      const sx = Math.sign(next.x - cur.x);
+      d += ` V ${ly(cur.y - sy * r)}`;
+      d += ` Q ${lx(cur.x)} ${ly(cur.y)} ${lx(cur.x + sx * r)} ${ly(cur.y)}`;
+    }
+  }
+
+  return d;
+}
+
+/**
+ * Compute an orthogonal path that never passes through either node.
+ *
+ * Two routing strategies:
+ *  • Simple (L-shape)  – 3 segments, used when the nodes have a clear
+ *    horizontal gap so the path can travel straight between them.
+ *  • U-shape           – 5 segments, used when nodes overlap horizontally
+ *    (or are in the same column). The path detours above or below both nodes.
+ */
+function computeWaypoints(
+  startPos: { x: number; y: number },
+  endPos: { x: number; y: number },
+  startSide: "left" | "right",
+  startBounds: NodeBounds,
+  endBounds: NodeBounds,
+): { x: number; y: number }[] {
+  const MARGIN = 20; // clearance outside a node edge
+
+  // Simple path: pivot X sits between the two facing handle edges.
+  // For startSide='right': startPos.x is the right edge of start node,
+  //   endPos.x is the left edge of end node – path flows left→right.
+  // For startSide='left': mirrored.
+  const canSimple =
+    startSide === "right"
+      ? startPos.x < endPos.x // gap exists on the right→left corridor
+      : startPos.x > endPos.x; // gap exists on the left→right corridor
+
+  if (canSimple) {
+    const pivotX = (startPos.x + endPos.x) / 2;
+    return [
+      startPos,
+      { x: pivotX, y: startPos.y },
+      { x: pivotX, y: endPos.y },
+      endPos,
+    ];
+  }
+
+  // ── U-shape detour ──────────────────────────────────────────────────────
+  // Vertical rails sit well outside both nodes' X ranges.
+  const leftRail =
+    Math.min(startBounds.x, endBounds.x) - MARGIN;
+  const rightRail =
+    Math.max(startBounds.x + startBounds.w, endBounds.x + endBounds.w) +
+    MARGIN;
+
+  // Horizontal rail sits above or below both nodes.
+  const topRail = Math.min(startBounds.y, endBounds.y) - MARGIN;
+  const bottomRail =
+    Math.max(
+      startBounds.y + startBounds.h,
+      endBounds.y + endBounds.h,
+    ) + MARGIN;
+
+  // Choose the rail that minimises total vertical travel.
+  const topCost =
+    Math.abs(startPos.y - topRail) + Math.abs(endPos.y - topRail);
+  const bottomCost =
+    Math.abs(startPos.y - bottomRail) + Math.abs(endPos.y - bottomRail);
+  const routeY = topCost <= bottomCost ? topRail : bottomRail;
+
+  // The first vertical rail is on the exit side; the second is on the entry side.
+  const firstRailX = startSide === "right" ? rightRail : leftRail;
+  const secondRailX = startSide === "right" ? leftRail : rightRail;
+
+  return [
+    startPos,
+    { x: firstRailX, y: startPos.y },
+    { x: firstRailX, y: routeY },
+    { x: secondRailX, y: routeY },
+    { x: secondRailX, y: endPos.y },
+    endPos,
+  ];
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 const EditorEdge2: React.FC<{
   selected: boolean;
   highlighted?: boolean;
@@ -9,6 +151,8 @@ const EditorEdge2: React.FC<{
   endPos: { x: number; y: number };
   /** Which side of the start node the edge exits from */
   startSide: "left" | "right";
+  startNodeBounds: NodeBounds;
+  endNodeBounds: NodeBounds;
   camera: Camera;
   onMouseDownEdge: () => void;
   onClickDelete: () => void;
@@ -19,6 +163,8 @@ const EditorEdge2: React.FC<{
   startPos,
   endPos,
   startSide,
+  startNodeBounds,
+  endNodeBounds,
   camera,
   onMouseDownEdge,
   onClickDelete,
@@ -30,74 +176,24 @@ const EditorEdge2: React.FC<{
     onMouseDownEdge();
   }
 
-  // --- Orthogonal (Manhattan) routing ---
-  // The path exits the start node horizontally, turns 90° at a pivot X,
-  // travels vertically to the end node's Y, turns 90° again, then enters
-  // the end node horizontally.  This guarantees the path never passes
-  // through the interior of either node.
+  const waypoints = computeWaypoints(
+    startPos,
+    endPos,
+    startSide,
+    startNodeBounds,
+    endNodeBounds,
+  );
 
-  // Minimum length (px) for the first / last horizontal segment so the
-  // path visibly exits the node before turning.
-  const MIN_SEG = 30;
+  // SVG bounding box – encompasses every waypoint plus padding.
+  const pad = 10;
+  const allX = waypoints.map((p) => p.x);
+  const allY = waypoints.map((p) => p.y);
+  const minX = Math.min(...allX) - pad;
+  const minY = Math.min(...allY) - pad;
+  const maxX = Math.max(...allX) + pad;
+  const maxY = Math.max(...allY) + pad;
 
-  let pivotX: number;
-  if (startSide === "right") {
-    // Exit rightward: pivot must be at least MIN_SEG to the right.
-    pivotX = Math.max(startPos.x + MIN_SEG, (startPos.x + endPos.x) / 2);
-  } else {
-    // Exit leftward: pivot must be at least MIN_SEG to the left.
-    pivotX = Math.min(startPos.x - MIN_SEG, (startPos.x + endPos.x) / 2);
-  }
-
-  // Build the SVG path with rounded corners (quadratic bezier at each turn)
-  // so it looks polished rather than harsh.
-  const dy = endPos.y - startPos.y;
-  const seg1 = Math.abs(pivotX - startPos.x);
-  const seg2 = Math.abs(endPos.x - pivotX);
-  const segV = Math.abs(dy);
-  // Corner radius – small enough never to exceed a segment's half-length.
-  const r = Math.min(8, seg1 * 0.4, seg2 * 0.4, segV * 0.4);
-
-  // SVG bounding box – the SVG is placed at (minX, minY) so all path
-  // coordinates must be expressed relative to that origin.
-  const pad = 2;
-  const minX = Math.min(startPos.x, endPos.x, pivotX) - pad;
-  const minY = Math.min(startPos.y, endPos.y) - pad;
-  const maxX = Math.max(startPos.x, endPos.x, pivotX) + pad;
-  const maxY = Math.max(startPos.y, endPos.y) + pad;
-
-  // Translate all coordinates into SVG-local space.
-  const ox = minX; // SVG origin X in screen space
-  const oy = minY; // SVG origin Y in screen space
-
-  const toLocal = (x: number, y: number) =>
-    `${x - ox} ${y - oy}`;
-
-  let pathDLocal: string;
-
-  if (segV < 1) {
-    pathDLocal = `M ${toLocal(startPos.x, startPos.y)} H ${endPos.x - ox}`;
-  } else if (r < 1) {
-    pathDLocal =
-      `M ${toLocal(startPos.x, startPos.y)}` +
-      ` H ${pivotX - ox}` +
-      ` V ${endPos.y - oy}` +
-      ` H ${endPos.x - ox}`;
-  } else {
-    const sign1X = pivotX >= startPos.x ? 1 : -1;
-    const signY = dy >= 0 ? 1 : -1;
-    const sign2X = endPos.x >= pivotX ? 1 : -1;
-
-    pathDLocal = [
-      `M ${toLocal(startPos.x, startPos.y)}`,
-      `H ${pivotX - sign1X * r - ox}`,
-      `Q ${pivotX - ox} ${startPos.y - oy} ${pivotX - ox} ${startPos.y + signY * r - oy}`,
-      `V ${endPos.y - signY * r - oy}`,
-      `Q ${pivotX - ox} ${endPos.y - oy} ${pivotX + sign2X * r - ox} ${endPos.y - oy}`,
-      `H ${endPos.x - ox}`,
-    ].join(" ");
-  }
-
+  const pathD = buildRoundedPath(waypoints, 8, minX, minY);
   const strokeColor = highlighted ? "#3b82f6" : selected ? "#f59e42" : "#888";
 
   return (
@@ -108,15 +204,13 @@ const EditorEdge2: React.FC<{
         top: minY,
         pointerEvents: "none",
         overflow: "visible",
-        // z-index 20 keeps edges above nodes (nodes use z-10 / z-index:10)
-        zIndex: 20,
       }}
       width={Math.max(1, maxX - minX)}
       height={Math.max(1, maxY - minY)}
     >
-      {/* Wide transparent path for easy click/hover hit-testing */}
+      {/* Wide transparent stroke for easy click/hover hit-testing */}
       <path
-        d={pathDLocal}
+        d={pathD}
         stroke="transparent"
         className="cursor-pointer"
         strokeWidth={20}
@@ -130,7 +224,7 @@ const EditorEdge2: React.FC<{
       <path
         className={`pointer-events-auto fill-transparent cursor-pointer
           ${hovering ? "stroke-opacity-100" : "stroke-opacity-50"}`}
-        d={pathDLocal}
+        d={pathD}
         stroke={strokeColor}
         strokeWidth={2}
         fill="none"
