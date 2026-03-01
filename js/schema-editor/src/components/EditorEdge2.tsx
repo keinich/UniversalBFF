@@ -106,26 +106,37 @@ function computeWaypoints(
 
   // ── U-shape detour ──────────────────────────────────────────────────────
   // Vertical rails sit well outside both nodes' X ranges.
-  const leftRail =
-    Math.min(startBounds.x, endBounds.x) - MARGIN;
+  const leftRail = Math.min(startBounds.x, endBounds.x) - MARGIN;
   const rightRail =
     Math.max(startBounds.x + startBounds.w, endBounds.x + endBounds.w) +
     MARGIN;
 
-  // Horizontal rail sits above or below both nodes.
-  const topRail = Math.min(startBounds.y, endBounds.y) - MARGIN;
-  const bottomRail =
-    Math.max(
-      startBounds.y + startBounds.h,
-      endBounds.y + endBounds.h,
-    ) + MARGIN;
+  // Choose routeY: prefer the vertical gap between the two nodes (if one
+  // exists) so the path stays between them rather than looping all the way
+  // above or below both.  Fall back to above/below only when the nodes
+  // overlap in Y and there is no gap.
+  const upperBottom = Math.min(
+    startBounds.y + startBounds.h,
+    endBounds.y + endBounds.h,
+  );
+  const lowerTop = Math.max(startBounds.y, endBounds.y);
 
-  // Choose the rail that minimises total vertical travel.
-  const topCost =
-    Math.abs(startPos.y - topRail) + Math.abs(endPos.y - topRail);
-  const bottomCost =
-    Math.abs(startPos.y - bottomRail) + Math.abs(endPos.y - bottomRail);
-  const routeY = topCost <= bottomCost ? topRail : bottomRail;
+  let routeY: number;
+  if (upperBottom < lowerTop) {
+    // Clear vertical gap between the nodes – thread through the middle.
+    routeY = (upperBottom + lowerTop) / 2;
+  } else {
+    // Nodes overlap in Y – must go above or below both.
+    const topRail = Math.min(startBounds.y, endBounds.y) - MARGIN;
+    const bottomRail =
+      Math.max(startBounds.y + startBounds.h, endBounds.y + endBounds.h) +
+      MARGIN;
+    const topCost =
+      Math.abs(startPos.y - topRail) + Math.abs(endPos.y - topRail);
+    const bottomCost =
+      Math.abs(startPos.y - bottomRail) + Math.abs(endPos.y - bottomRail);
+    routeY = topCost <= bottomCost ? topRail : bottomRail;
+  }
 
   // The first vertical rail is on the exit side; the second is on the entry side.
   const firstRailX = startSide === "right" ? rightRail : leftRail;
