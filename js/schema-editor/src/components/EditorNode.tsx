@@ -565,6 +565,8 @@ const EditorNode: React.FC<{
                   style={{
                     top:
                       worldHeightField * (numFields + i) +
+                      separationBorderHeight +
+                      separationBorderMargin +
                       (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
