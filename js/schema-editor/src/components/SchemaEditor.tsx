@@ -619,7 +619,8 @@ const SchemaEditor: React.FC<{
                   "radial-gradient(circle, #b8b8b8bf 1px, rgba(0,0,0,0) 1px",
                 backgroundPosition: `${backgroundWorldX}px ${backgroundWorldY}px`,
                 backgroundSize: `${backgroundWorldWidth}px ${backgroundWorldHeight}px`,
-                cursor: grabbingBoard ? "grab" : "default",
+                cursor: isDraggingNode ? "grabbing" : grabbingBoard ? "grab" : "default",
+                userSelect: (isDraggingNode || grabbingBoard) ? "none" : undefined,
               }}
             >
               {nodes.map((n: NodeData) => (
@@ -829,6 +830,12 @@ const SchemaEditor: React.FC<{
                   ></EditorEdge2>
                 );
               })}
+              {isDraggingNode && (
+                <div
+                  className="absolute inset-0 z-20"
+                  style={{ cursor: "grabbing" }}
+                />
+              )}
               {contextMenuPos && (
                 <div
                   style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
