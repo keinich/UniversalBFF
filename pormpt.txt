@@ -1,0 +1,16 @@
+Under js\schema-editor there is a react project. It contains a node based editor to edit a data schema. 
+It is similar to visual studio edmx editor or drawsql (https://drawsql.app/). Analyze the project to understand how it works.
+
+There is a unwanted behaviout: The nodes can be move by dragging them over the board. While doing so, right now, you can select text accidentially or you can trigger hover effects. Please 
+change this, so that while dragging a node, you cannot interact with anything else.
+
+
+In the editor, there are edges that connect fields or indices. These Edges are svg path lines. They should start from the designated circles right and left at the fields or indices. They should start exactly in the middle of them, regardless of the zoom level. Right now, this is not the case, depending of the zoom level, the start and endpointes of the edges are slightly off (not exactly in the middle of the input / output circles). Fix this.
+
+
+
+
+
+
+
+
