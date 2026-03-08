@@ -23,7 +23,7 @@ import { Position } from "../bl/Position";
 import EditorToolbar from "./EditorToolbar";
 import EditorProperties from "./EditorProperties";
 import { BoardState } from "../bl/BoardState";
-import EditorEdge2 from "./EditorEdge2";
+import EditorEdge2, { NodeBounds } from "./EditorEdge2";
 
 // Constants for node sizing
 const NODE_WIDTH = 220;
@@ -43,6 +43,24 @@ function calculateNodeDimensions(nodeData: NodeData): {
     nodeData.entitySchema.indices.length;
   const height = NODE_FIELD_HEIGHT * numRows;
   return { width, height };
+}
+
+/**
+ * Calculate node height in view (screen) space, matching EditorNode.tsx exactly.
+ * wh = camera.scale * NODE_FIELD_HEIGHT
+ */
+function calculateNodeViewHeight(nodeData: NodeData, wh: number): number {
+  const borderHeight = 6;
+  const separationBorderHeight = wh * 0.03;
+  const separationBorderMargin = wh * 0.1;
+  const numFields = nodeData.entitySchema.fields.length + 2;
+  const numIndices = nodeData.entitySchema.indices.length + 1;
+  return (
+    wh * (numFields + numIndices) +
+    borderHeight +
+    separationBorderHeight +
+    separationBorderMargin
+  );
 }
 
 const SchemaEditor: React.FC<{
@@ -765,15 +783,32 @@ const SchemaEditor: React.FC<{
                 // Input  handle center X = content-box left  edge = viewPos.x + BORDER
                 let startCenterX = startNodeViewPos.x + ww - BORDER;
                 let endCenterX = endNodeViewPos.x + BORDER;
+                let startSide: "left" | "right" = "right";
 
                 // If the start node sits to the right of the end node, flip sides.
                 if (startNodeViewPos.x + ww / 2 > endNodeViewPos.x + ww / 2) {
+                  startSide = "left";
                   startCenterX = startNodeViewPos.x + BORDER;
                   endCenterX = endNodeViewPos.x + ww - BORDER;
                 }
 
                 const startPos = { x: startCenterX, y: startCenterY };
                 const endPos = { x: endCenterX, y: endCenterY };
+
+                // Node bounding boxes in view space (used by EditorEdge2 to
+                // route the path around both nodes when necessary).
+                const startNodeBounds: NodeBounds = {
+                  x: startNodeViewPos.x,
+                  y: startNodeViewPos.y,
+                  w: ww,
+                  h: calculateNodeViewHeight(startNode, wh),
+                };
+                const endNodeBounds: NodeBounds = {
+                  x: endNodeViewPos.x,
+                  y: endNodeViewPos.y,
+                  w: ww,
+                  h: calculateNodeViewHeight(endNode, wh),
+                };
 
                 return (
                   <EditorEdge2
@@ -784,6 +819,9 @@ const SchemaEditor: React.FC<{
                     camera={camera}
                     startPos={startPos}
                     endPos={endPos}
+                    startSide={startSide}
+                    startNodeBounds={startNodeBounds}
+                    endNodeBounds={endNodeBounds}
                     onMouseDownEdge={() => {
                       handleEdgeSelection(edge);
                     }}
