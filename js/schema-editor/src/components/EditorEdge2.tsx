@@ -1,5 +1,8 @@
 import React from "react";
 import { Camera } from "../bl/Camera";
+import { EdgeData } from "../bl/EdgeData";
+import { NodeData } from "../bl/NodeData";
+import { getViewPosFromWorldPos } from "../bl/BoardUtils";
 
 /** Bounding box of a node in view (screen) space */
 export interface NodeBounds {
@@ -9,7 +12,194 @@ export interface NodeBounds {
   h: number; // height
 }
 
-// ─── Routing helpers ─────────────────────────────────────────────────────────
+// ─── Layout constants (must match EditorNode.tsx) ────────────────────────────
+
+/** Fixed pixel width of every node card */
+const NODE_WIDTH = 220;
+
+/** Height of a single field/header row inside a node card */
+const NODE_FIELD_HEIGHT = 30;
+
+/** Border width applied via Tailwind `border-2` on the node div */
+const NODE_BORDER = 2;
+
+// ─── Node dimension helpers ───────────────────────────────────────────────────
+
+/**
+ * Calculate the view-space height of a node card, matching EditorNode.tsx
+ * exactly.
+ *
+ * wh = camera.scale * NODE_FIELD_HEIGHT
+ *   separationBorderHeight = wh * 0.03
+ *   separationBorderMargin = wh * 0.1
+ *   numFields = entitySchema.fields.length + 2  (header row + new-field input)
+ *   numIndices = entitySchema.indices.length + 1 (section header)
+ *   height = wh * (numFields + numIndices) + 6 + separationBorderHeight + separationBorderMargin
+ */
+function calcNodeViewHeight(node: NodeData, wh: number): number {
+  const borderHeight = 6;
+  const separationBorderHeight = wh * 0.03;
+  const separationBorderMargin = wh * 0.1;
+  const numFields = node.entitySchema.fields.length + 2;
+  const numIndices = node.entitySchema.indices.length + 1;
+  return (
+    wh * (numFields + numIndices) +
+    borderHeight +
+    separationBorderHeight +
+    separationBorderMargin
+  );
+}
+
+// ─── Handle-position helpers ──────────────────────────────────────────────────
+
+/**
+ * Compute the view-space Y centre of the connector handle for a given field or
+ * index name on a node.
+ *
+ * Layout (from node border-box top, in view space):
+ *   Field row handle Y:
+ *     NODE_BORDER + wh * (fieldIndex + 1) + wh / 2
+ *   Index row handle Y:
+ *     NODE_BORDER + wh * (numFieldRows + indexIndex) + sepH + sepM + wh / 2
+ *   where numFieldRows = fields.length + 2
+ */
+function calcHandleCenterY(
+  node: NodeData,
+  fieldName: string,
+  nodeViewY: number,
+  wh: number,
+): number {
+  const fieldIdx = node.entitySchema.fields.findIndex(
+    (f) => f.name === fieldName,
+  );
+
+  if (fieldIdx >= 0) {
+    return nodeViewY + NODE_BORDER + wh * (fieldIdx + 1) + wh / 2;
+  }
+
+  const indexIdx = node.entitySchema.indices.findIndex(
+    (idx) => idx.name === fieldName,
+  );
+  const numFieldRows = node.entitySchema.fields.length + 2;
+  const sepH = wh * 0.03;
+  const sepM = wh * 0.1;
+  return (
+    nodeViewY +
+    NODE_BORDER +
+    wh * (numFieldRows + indexIdx) +
+    sepH +
+    sepM +
+    wh / 2
+  );
+}
+
+/**
+ * Derive the view-space start/end positions, exit side, and node bounding
+ * boxes used by the router.
+ *
+ * When `endNode` is provided the end point is the exact handle centre on that
+ * node (committed edge).  When it is absent the end point is
+ * `edge.currentEndPosition` (world space), converted to view space — this is
+ * the cursor position during a drag-to-connect gesture.  In that case a
+ * zero-size bounding box is synthesised at the cursor so the router still
+ * routes correctly (the 20 px MARGIN around a 0×0 box is harmless).
+ */
+function calcEdgeEndpoints(
+  edge: EdgeData,
+  startNode: NodeData,
+  endNode: NodeData | undefined,
+  camera: Camera,
+): {
+  startPos: { x: number; y: number };
+  endPos: { x: number; y: number };
+  startSide: "left" | "right";
+  startNodeBounds: NodeBounds;
+  endNodeBounds: NodeBounds;
+} {
+  const wh = camera.scale * NODE_FIELD_HEIGHT;
+  const ww = camera.scale * NODE_WIDTH;
+
+  const startViewPos = getViewPosFromWorldPos(startNode.currentPosition, camera);
+
+  const startCenterY = calcHandleCenterY(
+    startNode,
+    edge.outputFieldName,
+    startViewPos.y,
+    wh,
+  );
+
+  // ── End point ────────────────────────────────────────────────────────────
+  let endCenterY: number;
+  let endViewX: number;
+  let endNodeBounds: NodeBounds;
+
+  if (endNode) {
+    // Committed edge: anchor to the exact handle on the end node.
+    const endViewPos = getViewPosFromWorldPos(endNode.currentPosition, camera);
+    endCenterY = calcHandleCenterY(
+      endNode,
+      edge.inputFieldName,
+      endViewPos.y,
+      wh,
+    );
+    endViewX = endViewPos.x;
+    endNodeBounds = {
+      x: endViewPos.x,
+      y: endViewPos.y,
+      w: ww,
+      h: calcNodeViewHeight(endNode, wh),
+    };
+  } else {
+    // New-edge drag: use the cursor world position (currentEndPosition).
+    const cursorView = getViewPosFromWorldPos(edge.currentEndPosition, camera);
+    endCenterY = cursorView.y;
+    // endViewX is used below only to determine startSide; treat the cursor as
+    // a zero-width target so the side comparison is purely horizontal.
+    endViewX = cursorView.x;
+    // Zero-size bounds at the cursor — the router adds its own MARGIN clearance.
+    endNodeBounds = { x: cursorView.x, y: cursorView.y, w: 0, h: 0 };
+  }
+
+  // ── Side selection ────────────────────────────────────────────────────────
+  // Default: exit right, enter left.  Flip when the start node centre is to
+  // the right of the end target centre (or cursor).
+  let startSide: "left" | "right" = "right";
+  let startCenterX = startViewPos.x + ww - NODE_BORDER; // right content-box edge
+  let endCenterX: number;
+
+  if (endNode) {
+    endCenterX = endViewX + NODE_BORDER; // left content-box edge of end node
+    if (startViewPos.x + ww / 2 > endViewX + ww / 2) {
+      startSide = "left";
+      startCenterX = startViewPos.x + NODE_BORDER;
+      endCenterX = endViewX + ww - NODE_BORDER;
+    }
+  } else {
+    // No end node: compare start-node centre against cursor X.
+    endCenterX = endViewX;
+    if (startViewPos.x + ww / 2 > endViewX) {
+      startSide = "left";
+      startCenterX = startViewPos.x + NODE_BORDER;
+    }
+  }
+
+  const startNodeBounds: NodeBounds = {
+    x: startViewPos.x,
+    y: startViewPos.y,
+    w: ww,
+    h: calcNodeViewHeight(startNode, wh),
+  };
+
+  return {
+    startPos: { x: startCenterX, y: startCenterY },
+    endPos: { x: endCenterX, y: endCenterY },
+    startSide,
+    startNodeBounds,
+    endNodeBounds,
+  };
+}
+
+// ─── Routing helpers ──────────────────────────────────────────────────────────
 
 /**
  * Build a smooth orthogonal SVG path through a list of axis-aligned waypoints.
@@ -152,40 +342,55 @@ function computeWaypoints(
   ];
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Props ────────────────────────────────────────────────────────────────────
 
-const EditorEdge2: React.FC<{
+/**
+ * Props for EditorEdge2.
+ *
+ * Both committed edges and in-progress drag edges use this single interface.
+ *
+ * Committed edge (endNode present):
+ *   The component derives all view-space geometry from startNode, endNode,
+ *   and the field names stored in edge.
+ *
+ * New-edge drag preview (endNode absent):
+ *   The end point is taken from edge.currentEndPosition (world space), which
+ *   SchemaEditor updates on every mouse-move event.  The routing logic is
+ *   identical — the cursor is treated as a zero-size target node.
+ */
+interface EditorEdge2Props {
+  edge: EdgeData;
+  startNode: NodeData;
+  /** Omit while the edge is still being drawn (cursor follows the mouse). */
+  endNode?: NodeData;
+  camera: Camera;
   selected: boolean;
   highlighted?: boolean;
-  isNew: boolean;
-  startPos: { x: number; y: number };
-  endPos: { x: number; y: number };
-  /** Which side of the start node the edge exits from */
-  startSide: "left" | "right";
-  startNodeBounds: NodeBounds;
-  endNodeBounds: NodeBounds;
-  camera: Camera;
   onMouseDownEdge: () => void;
   onClickDelete: () => void;
-}> = ({
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+const EditorEdge2: React.FC<EditorEdge2Props> = ({
+  edge,
+  startNode,
+  endNode,
+  camera,
   selected,
   highlighted = false,
-  isNew,
-  startPos,
-  endPos,
-  startSide,
-  startNodeBounds,
-  endNodeBounds,
-  camera,
   onMouseDownEdge,
   onClickDelete,
 }) => {
   const [hovering, setHovering] = React.useState(false);
 
-  function handleMouseDownEdge(e: any) {
+  function handleMouseDownEdge(e: React.MouseEvent) {
     e.stopPropagation();
     onMouseDownEdge();
   }
+
+  const { startPos, endPos, startSide, startNodeBounds, endNodeBounds } =
+    calcEdgeEndpoints(edge, startNode, endNode, camera);
 
   const waypoints = computeWaypoints(
     startPos,

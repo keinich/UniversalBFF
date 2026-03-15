@@ -9,28 +9,27 @@ import {
 } from "fusefx-modeldescription";
 import EditorNode from "./EditorNode";
 import { EdgeData } from "../bl/EdgeData";
-import EditorEdge from "./EditorEdge";
 import { Camera } from "../bl/Camera";
 import BoardContextMenu from "./BoardContextMenu";
 import {
   getBoardPosFromWindowPos,
   getBoardStateFromSchema,
   getSchemaFromBoardState,
-  getViewPosFromWorldPos,
   getWorldPosFromViewPos,
 } from "../bl/BoardUtils";
 import { Position } from "../bl/Position";
 import EditorToolbar from "./EditorToolbar";
 import EditorProperties from "./EditorProperties";
 import { BoardState } from "../bl/BoardState";
-import EditorEdge2, { NodeBounds } from "./EditorEdge2";
+import EditorEdge2 from "./EditorEdge2";
 
-// Constants for node sizing
+// NODE_WIDTH is still needed here to compute node center for new-edge start position.
 const NODE_WIDTH = 220;
 const NODE_FIELD_HEIGHT = 30;
 
 /**
- * Calculate the dimensions of a node based on its content
+ * Calculate the approximate dimensions of a node (world space).
+ * Used only when creating a new edge to compute the starting anchor point.
  */
 function calculateNodeDimensions(nodeData: NodeData): {
   width: number;
@@ -43,24 +42,6 @@ function calculateNodeDimensions(nodeData: NodeData): {
     nodeData.entitySchema.indices.length;
   const height = NODE_FIELD_HEIGHT * numRows;
   return { width, height };
-}
-
-/**
- * Calculate node height in view (screen) space, matching EditorNode.tsx exactly.
- * wh = camera.scale * NODE_FIELD_HEIGHT
- */
-function calculateNodeViewHeight(nodeData: NodeData, wh: number): number {
-  const borderHeight = 6;
-  const separationBorderHeight = wh * 0.03;
-  const separationBorderMargin = wh * 0.1;
-  const numFields = nodeData.entitySchema.fields.length + 2;
-  const numIndices = nodeData.entitySchema.indices.length + 1;
-  return (
-    wh * (numFields + numIndices) +
-    borderHeight +
-    separationBorderHeight +
-    separationBorderMargin
-  );
 }
 
 const SchemaEditor: React.FC<{
@@ -619,8 +600,13 @@ const SchemaEditor: React.FC<{
                   "radial-gradient(circle, #b8b8b8bf 1px, rgba(0,0,0,0) 1px",
                 backgroundPosition: `${backgroundWorldX}px ${backgroundWorldY}px`,
                 backgroundSize: `${backgroundWorldWidth}px ${backgroundWorldHeight}px`,
-                cursor: isDraggingNode ? "grabbing" : grabbingBoard ? "grab" : "default",
-                userSelect: (isDraggingNode || grabbingBoard) ? "none" : undefined,
+                cursor: isDraggingNode
+                  ? "grabbing"
+                  : grabbingBoard
+                    ? "grab"
+                    : "default",
+                userSelect:
+                  isDraggingNode || grabbingBoard ? "none" : undefined,
               }}
             >
               {nodes.map((n: NodeData) => (
@@ -668,166 +654,46 @@ const SchemaEditor: React.FC<{
                   isDraggingEdge={newEdge !== null}
                 ></EditorNode>
               ))}
-              {newEdge && (
-                <EditorEdge
-                  selected={false}
-                  isNew={true}
-                  position={{
-                    x0: newEdge.currentStartPosition.x,
-                    y0: newEdge.currentStartPosition.y,
-                    x1: newEdge.currentEndPosition.x,
-                    y1: newEdge.currentEndPosition.y,
-                  }}
-                  camera={camera}
-                  onClickDelete={() => {}}
-                  onMouseDownEdge={() => {}}
-                ></EditorEdge>
-              )}
+              {newEdge && (() => {
+                const newEdgeStartNode = nodes.find(
+                  (n) => n.id === newEdge.nodeStartId,
+                );
+                if (!newEdgeStartNode) return null;
+                return (
+                  <EditorEdge2
+                    selected={false}
+                    camera={camera}
+                    edge={newEdge}
+                    startNode={newEdgeStartNode}
+                    // endNode intentionally absent: cursor position is read
+                    // from edge.currentEndPosition inside EditorEdge2
+                    onClickDelete={() => {}}
+                    onMouseDownEdge={() => {}}
+                  />
+                );
+              })()}
               {edges.map((edge: EdgeData, i) => {
                 const startNode = nodes.find((n) => n.id === edge.nodeStartId);
                 const endNode = nodes.find((n) => n.id === edge.nodeEndId);
 
                 if (!startNode || !endNode) return null;
 
-                // Compute edge endpoints in view space to exactly match handle
-                // center positions, accounting for the node's 2px border.
-                //
-                // In EditorNode the handles are absolutely positioned children
-                // of the node div. Their `top`/`left`/`right` values are
-                // relative to the node's content-box (i.e. inset by BORDER px).
-                // The handle sizing/positioning rules (after CSS fix) are:
-                //   width = height = wh/3
-                //   field  input  (left):  left:  -wh/6  → center at content-box left  edge
-                //   field  output (right): right: -wh/6  → center at content-box right edge
-                //   index  input  (left):  left:  -wh/6  → center at content-box left  edge
-                //   index  output (right): right: -wh/6  → center at content-box right edge
-                //
-                // Field handle center Y (view-space, from node border-box top):
-                //   BORDER + wh*(fieldIndex+1) + wh/3 + wh/6
-                //   = BORDER + wh*(fieldIndex+1) + wh/2
-                //
-                // Index handle center Y (view-space, from node border-box top):
-                //   BORDER + wh*numFields + wh*indexIndex + sepH + sepM + wh/3 + wh/6
-                //   = BORDER + wh*(numFields+indexIndex) + sepH + sepM + wh/2
-                //   where numFields = fields.length + 2 (matches EditorNode)
-
-                const BORDER = 2; // matches border-2 class on EditorNode
-                const wh = camera.scale * NODE_FIELD_HEIGHT;
-                const ww = camera.scale * NODE_WIDTH;
-
-                const startNodeViewPos = getViewPosFromWorldPos(
-                  startNode.currentPosition,
-                  camera,
-                );
-                const endNodeViewPos = getViewPosFromWorldPos(
-                  endNode.currentPosition,
-                  camera,
-                );
-
-                // --- start node handle center Y ---
-                const startFieldIdx =
-                  startNode.entitySchema.fields.findIndex(
-                    (f) => f.name === edge.outputFieldName,
-                  );
-                let startCenterY: number;
-                if (startFieldIdx >= 0) {
-                  startCenterY =
-                    startNodeViewPos.y +
-                    BORDER +
-                    wh * (startFieldIdx + 1) +
-                    wh / 2;
-                } else {
-                  const startIndexIdx =
-                    startNode.entitySchema.indices.findIndex(
-                      (idx) => idx.name === edge.outputFieldName,
-                    );
-                  // numFields from EditorNode: fields.length + 2 (header + new-field input)
-                  const numFieldRows =
-                    startNode.entitySchema.fields.length + 2;
-                  const sepH = wh * 0.03; // separationBorderHeight
-                  const sepM = wh * 0.1; // separationBorderMargin
-                  startCenterY =
-                    startNodeViewPos.y +
-                    BORDER +
-                    wh * (numFieldRows + startIndexIdx) +
-                    sepH +
-                    sepM +
-                    wh / 2;
-                }
-
-                // --- end node handle center Y ---
-                const endFieldIdx = endNode.entitySchema.fields.findIndex(
-                  (f) => f.name === edge.inputFieldName,
-                );
-                let endCenterY: number;
-                if (endFieldIdx >= 0) {
-                  endCenterY =
-                    endNodeViewPos.y + BORDER + wh * (endFieldIdx + 1) + wh / 2;
-                } else {
-                  const endIndexIdx = endNode.entitySchema.indices.findIndex(
-                    (idx) => idx.name === edge.inputFieldName,
-                  );
-                  const numFieldRows = endNode.entitySchema.fields.length + 2;
-                  const sepH = wh * 0.03;
-                  const sepM = wh * 0.1;
-                  endCenterY =
-                    endNodeViewPos.y +
-                    BORDER +
-                    wh * (numFieldRows + endIndexIdx) +
-                    sepH +
-                    sepM +
-                    wh / 2;
-                }
-
-                // Default: start from right (output) handle, end at left (input) handle.
-                // Output handle center X = content-box right edge = viewPos.x + ww - BORDER
-                // Input  handle center X = content-box left  edge = viewPos.x + BORDER
-                let startCenterX = startNodeViewPos.x + ww - BORDER;
-                let endCenterX = endNodeViewPos.x + BORDER;
-                let startSide: "left" | "right" = "right";
-
-                // If the start node sits to the right of the end node, flip sides.
-                if (startNodeViewPos.x + ww / 2 > endNodeViewPos.x + ww / 2) {
-                  startSide = "left";
-                  startCenterX = startNodeViewPos.x + BORDER;
-                  endCenterX = endNodeViewPos.x + ww - BORDER;
-                }
-
-                const startPos = { x: startCenterX, y: startCenterY };
-                const endPos = { x: endCenterX, y: endCenterY };
-
-                // Node bounding boxes in view space (used by EditorEdge2 to
-                // route the path around both nodes when necessary).
-                const startNodeBounds: NodeBounds = {
-                  x: startNodeViewPos.x,
-                  y: startNodeViewPos.y,
-                  w: ww,
-                  h: calculateNodeViewHeight(startNode, wh),
-                };
-                const endNodeBounds: NodeBounds = {
-                  x: endNodeViewPos.x,
-                  y: endNodeViewPos.y,
-                  w: ww,
-                  h: calculateNodeViewHeight(endNode, wh),
-                };
-
                 return (
                   <EditorEdge2
                     key={i}
-                    selected={selectedEdge ? selectedEdge.id == edge.id : false}
+                    selected={
+                      selectedEdge ? selectedEdge.id === edge.id : false
+                    }
                     highlighted={highlightedEdges.has(edge.id)}
-                    isNew={false}
                     camera={camera}
-                    startPos={startPos}
-                    endPos={endPos}
-                    startSide={startSide}
-                    startNodeBounds={startNodeBounds}
-                    endNodeBounds={endNodeBounds}
+                    edge={edge}
+                    startNode={startNode}
+                    endNode={endNode}
                     onMouseDownEdge={() => {
                       handleEdgeSelection(edge);
                     }}
                     onClickDelete={() => {}}
-                  ></EditorEdge2>
+                  />
                 );
               })}
               {isDraggingNode && (
