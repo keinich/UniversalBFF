@@ -284,12 +284,15 @@ const EditorNode: React.FC<{
     const separationBorderHeight = worldHeightField * 0.03;
     const separationBorderMargin = worldHeightField * 0.1;
     const numFields = nodeData.entitySchema.fields.length + 2; // +2 for entity name and new field input
-    const numIndices = nodeData.entitySchema.indices.length + 1; // +1 for new index input
+    const numIndices = nodeData.entitySchema.indices.length + 2; // +1 for "Indices" header row, +1 for new index input
     const height =
       worldHeightField * (numFields + numIndices) +
       borderHeight +
       separationBorderHeight +
       separationBorderMargin;
+    // Offset used when computing absolute connector-dot `top` values for index rows.
+    // It is numFields (fields + entity name + new-field input) + 1 (Indices header row).
+    const indexRowTopOffset = numFields + 1;
 
     return (
       <div
@@ -510,6 +513,36 @@ const EditorNode: React.FC<{
           }}
           className="bg-contentBorder dark:bg-contentBorderDark"
         ></div>
+        {/* Indices section header */}
+        <div
+          style={{
+            width: `${worldWidth - 4}px`,
+            height: `${worldHeightField}px`,
+            fontSize: worldHeightField / 2.8,
+            paddingLeft: worldHeightField * 0.3,
+            paddingRight: worldHeightField * 0.15,
+            gap: worldHeightField * 0.25,
+          }}
+          className="flex items-center font-semibold tracking-wide
+            text-zinc-500 dark:text-zinc-400
+            bg-bg5 dark:bg-bg5dark
+            border-b border-contentBorder dark:border-contentBorderDark
+            select-none pointer-events-none"
+        >
+          {/* Inline SVG index icon — a simple key/list shape */}
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            style={{ width: worldHeightField * 0.45, height: worldHeightField * 0.45, flexShrink: 0 }}
+          >
+            <rect x="1" y="3" width="14" height="2.5" rx="0.5" />
+            <rect x="1" y="7" width="9" height="2.5" rx="0.5" />
+            <rect x="1" y="11" width="11" height="2.5" rx="0.5" />
+          </svg>
+          Indices
+        </div>
         {nodeData.entitySchema.indices.map((index: any, i: number) => {
           const inputRef: any = React.createRef();
           const outputRef: any = createRef();
@@ -535,7 +568,7 @@ const EditorNode: React.FC<{
                   handleCommitIndex(index, e.target.value);
                 }}
                 // readOnly={index.name != activeIndex?.name || !inputMode}
-                placeholder="New Field"
+                placeholder="Index"
                 style={{
                   width: `${worldWidth - 4 - 2 * worldHeightField * 0.15}px`,
                   height: `${worldHeightField}px`,
@@ -543,7 +576,7 @@ const EditorNode: React.FC<{
                   marginLeft: worldHeightField * 0.15,
                   marginRight: worldHeightField * 0.15,
                 }}
-                className={`text-center rounded-md outline-none cursor-default border-0 border-red-400 select-none   
+                className={`text-center rounded-md outline-none cursor-default border-0 border-red-400 select-none
                   ${
                     highlightedFields.has(index.name)
                       ? "bg-blue-200 dark:bg-blue-800"
@@ -551,14 +584,14 @@ const EditorNode: React.FC<{
                         ? "bg-blue-100 dark:bg-blue-700"
                         : nodeData.color
                           ? "select-none hover:bg-bg5 dark:hover:bg-bg5dark"
-                          : "bg-bg6 dark:bg-bg6dark select-none"
+                          : "bg-bg5 dark:bg-bg5dark select-none"
                   }`}
               ></input>
               {(isDraggingEdge || true) && (
                 <div
                   style={{
                     top:
-                      worldHeightField * (numFields + i) +
+                      worldHeightField * (indexRowTopOffset + i) +
                       separationBorderHeight +
                       separationBorderMargin +
                       (1 / 3) * worldHeightField,
@@ -580,7 +613,7 @@ const EditorNode: React.FC<{
                 <div
                   style={{
                     top:
-                      worldHeightField * (numFields + i) +
+                      worldHeightField * (indexRowTopOffset + i) +
                       separationBorderHeight +
                       separationBorderMargin +
                       (1 / 3) * worldHeightField,
@@ -590,7 +623,7 @@ const EditorNode: React.FC<{
                     backgroundColor: nodeData.color,
                   }}
                   ref={outputRef}
-                  className="absolute rounded-full 
+                  className="absolute rounded-full
                     cursor-crosshair hover:bg-red-400 pointer-events-auto"
                   onMouseDown={(e) =>
                     handleMouseDownOutput(outputRef, e, index.name)
