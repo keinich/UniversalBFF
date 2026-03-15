@@ -360,13 +360,7 @@ const EditorNode: React.FC<{
           const inputRef: any = React.createRef();
           const outputRef: any = createRef();
           return (
-            <
-              // key={f.name}
-              // className="relative border-0 bg-pink-400"
-              // style={{
-              //   height: `${worldHeightField}px`,
-              // }}
-            >
+            <React.Fragment key={f.name}>
               <input
                 onMouseDown={(e: any) => {
                   e.stopPropagation();
@@ -484,7 +478,7 @@ const EditorNode: React.FC<{
                   </div> */}
                 </>
               )}
-            </>
+            </React.Fragment>
           );
         })}
         <input

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   EntitySchema,
   RelationSchema,
@@ -271,6 +271,16 @@ const EditorProperties: React.FC<{
   const [_, setLocal] = useState(0);
   const forceUpdate = () => setLocal((n) => n + 1);
 
+  // Stable key for FieldForm: only increment when the field *object reference* changes,
+  // not when field.name changes (which would remount the form on every keystroke).
+  const fieldKeyRef = useRef<{ field: FieldSchema | null; key: number }>({
+    field: null,
+    key: 0,
+  });
+  if (field !== fieldKeyRef.current.field) {
+    fieldKeyRef.current = { field, key: fieldKeyRef.current.key + 1 };
+  }
+
   const entity = nodeData?.entitySchema;
   const showEntityTabs = entity && !field && !relation && !index;
 
@@ -319,7 +329,7 @@ const EditorProperties: React.FC<{
         </div>
       )}
 
-      {field && <FieldForm field={field} onChange={onChange} />}
+      {field && <FieldForm key={fieldKeyRef.current.key} field={field} onChange={onChange} />}
       {relation && <RelationForm relation={relation} onChange={onChange} />}
       {index && entity && (
         <IndexForm entitySchema={entity} index={index} onChange={onChange} />
