@@ -1,4 +1,4 @@
-import React, { createRef, useEffect, useState } from "react";
+import React, { createRef, useEffect, useRef, useState } from "react";
 import { FieldSchema, IndexSchema } from "fusefx-modeldescription";
 import { Camera } from "../bl/Camera";
 import { NodeData } from "../bl/NodeData";
@@ -79,8 +79,39 @@ const EditorNode: React.FC<{
     isDraggingEdge,
   }) => {
     const [entityName, setEntityName] = useState(nodeData.entitySchema.name);
-    // const [activeField, setActiveField] = useState('')
-    const [inputMode, setInputMode] = useState(false);
+    const [editingFieldName, setEditingFieldName] = useState<string | null>(null);
+    const [editingIndexName, setEditingIndexName] = useState<string | null>(null);
+    const fieldInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+    const indexInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+    const pendingCharRef = useRef<string | null>(null);
+
+    useEffect(() => {
+      if (!editingFieldName) return;
+      const input = fieldInputRefs.current.get(editingFieldName);
+      if (!input) return;
+      input.focus();
+      if (pendingCharRef.current !== null && pendingCharRef.current !== "") {
+        input.value = pendingCharRef.current;
+        input.setSelectionRange(1, 1);
+      } else {
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+      pendingCharRef.current = null;
+    }, [editingFieldName]);
+
+    useEffect(() => {
+      if (!editingIndexName) return;
+      const input = indexInputRefs.current.get(editingIndexName);
+      if (!input) return;
+      input.focus();
+      if (pendingCharRef.current !== null && pendingCharRef.current !== "") {
+        input.value = pendingCharRef.current;
+        input.setSelectionRange(1, 1);
+      } else {
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+      pendingCharRef.current = null;
+    }, [editingIndexName]);
 
     function handleCommitField(f: FieldSchema | null, value: any) {
       if (!value || value == "") return;
@@ -203,53 +234,83 @@ const EditorNode: React.FC<{
 
     function handleKeyDownInputField(field: FieldSchema | null, e: any) {
       e.stopPropagation();
-      if (e.key == "Enter") {
-        handleCommitField(field, e.target.value);
-        const el: any = document.getElementById(
-          nodeData.entitySchema.name + "_new",
-        );
-        if (el) {
-          el.value = "";
-          el.focus();
+      if (!field) {
+        // "New Field" input — always editable
+        if (e.key === "Enter") {
+          handleCommitField(null, e.target.value);
+          const el = document.getElementById(nodeData.entitySchema.name + "_new") as HTMLInputElement;
+          if (el) { el.value = ""; el.focus(); }
         }
-        if (!field) {
-          setInputMode((i) => !i);
+        return;
+      }
+      const isEditing = editingFieldName === field.name;
+      if (isEditing) {
+        if (e.key === "Enter") {
+          handleCommitField(field, e.target.value);
+          setEditingFieldName(null);
         }
-      }
-      if (e.key == "Delete" && field) {
-        onDeleteField(field);
-        // nodeData.entitySchema.fields = nodeData.entitySchema.fields.filter(
-        //   (f) => f.name != field.name,
-        // )
-      }
-      if (!inputMode && field) {
-        setInputMode(true);
+        if (e.key === "Escape") {
+          setEditingFieldName(null);
+        }
+        // Delete in edit mode: let browser handle character deletion
+      } else {
+        // Selected but not editing
+        if (e.key === "Delete") {
+          onDeleteField(field);
+          return;
+        }
+        if (e.key === "Enter" || e.key === "F2") {
+          pendingCharRef.current = "";
+          setEditingFieldName(field.name);
+          e.preventDefault();
+          return;
+        }
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          pendingCharRef.current = e.key;
+          setEditingFieldName(field.name);
+          e.preventDefault();
+          return;
+        }
       }
     }
 
     function handleKeyDownInputIndex(index: IndexSchema | null, e: any) {
       e.stopPropagation();
-      if (e.key == "Enter") {
-        handleCommitIndex(index, e.target.value);
-        const el: any = document.getElementById(
-          nodeData.entitySchema.name + "_newIndex",
-        );
-        if (el) {
-          el.value = "";
-          el.focus();
+      if (!index) {
+        // "New Index" input — always editable
+        if (e.key === "Enter") {
+          handleCommitIndex(null, e.target.value);
+          const el = document.getElementById(nodeData.entitySchema.name + "_newIndex") as HTMLInputElement;
+          if (el) { el.value = ""; el.focus(); }
         }
-        if (!index) {
-          setInputMode((i) => !i);
+        return;
+      }
+      const isEditing = editingIndexName === index.name;
+      if (isEditing) {
+        if (e.key === "Enter") {
+          handleCommitIndex(index, e.target.value);
+          setEditingIndexName(null);
         }
-      }
-      if (e.key == "Delete" && index) {
-        onDeleteIndex(index);
-        // nodeData.entitySchema.fields = nodeData.entitySchema.fields.filter(
-        //   (f) => f.name != field.name,
-        // )
-      }
-      if (!inputMode && index) {
-        setInputMode(true);
+        if (e.key === "Escape") {
+          setEditingIndexName(null);
+        }
+      } else {
+        if (e.key === "Delete") {
+          onDeleteIndex(index);
+          return;
+        }
+        if (e.key === "Enter" || e.key === "F2") {
+          pendingCharRef.current = "";
+          setEditingIndexName(index.name);
+          e.preventDefault();
+          return;
+        }
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          pendingCharRef.current = e.key;
+          setEditingIndexName(index.name);
+          e.preventDefault();
+          return;
+        }
       }
     }
 
@@ -263,11 +324,7 @@ const EditorNode: React.FC<{
         }
         el.value = "";
         el.focus();
-        setInputMode((i) => !i);
         onCommitEntityName(e.target.value);
-      }
-      if (!inputMode) {
-        setInputMode(true);
       }
     }
 
@@ -311,8 +368,8 @@ const EditorNode: React.FC<{
           onMouseDown(id, e);
         }}
         onBlur={() => {
-          setInputMode(false);
-          // setActiveField('')
+          setEditingFieldName(null);
+          setEditingIndexName(null);
         }}
         className={`flex flex-col absolute rounded-md cursor-grab border-2 gap-0 z-10
           bg-content dark:bg-contentDark
@@ -328,10 +385,8 @@ const EditorNode: React.FC<{
             onMouseDown(id, e);
           }}
           onDoubleClick={(e: any) => {
-            console.log("double click entity name");
             e.preventDefault();
             e.stopPropagation();
-            setInputMode(true);
           }}
           onKeyDown={(e: any) => handleKeyDownEntityName(e)}
           style={{
@@ -365,27 +420,30 @@ const EditorNode: React.FC<{
           return (
             <React.Fragment key={f.name}>
               <input
+                ref={(el) => { if (el) fieldInputRefs.current.set(f.name, el); }}
                 onMouseDown={(e: any) => {
                   e.stopPropagation();
-                  console.log("mouse down field");
                   if (f.name !== activeField?.name) {
-                    setInputMode(false);
+                    setEditingFieldName(null);
                   }
                   setActiveField(f);
                   onFieldClick(id, f);
                   setSelectedNode(id);
                   setSelectedEdge(null);
-                  // onMouseDown(id, e);
                 }}
-                onFocus={() => setActiveField(f)}
-                // readOnly={f.name != activeField?.name || !inputMode}
+                onDoubleClick={(e: any) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  pendingCharRef.current = "";
+                  setEditingFieldName(f.name);
+                }}
+                readOnly={editingFieldName !== f.name}
                 defaultValue={f.name}
                 onKeyDown={(e: any) => handleKeyDownInputField(f, e)}
                 onBlur={(e) => {
-                  console.log("blur field");
                   e.preventDefault();
-                  // e.stopPropagation()
                   handleCommitField(f, e.target.value);
+                  setEditingFieldName(null);
                 }}
                 placeholder="New Field"
                 style={{
@@ -395,15 +453,16 @@ const EditorNode: React.FC<{
                   marginLeft: worldHeightField * 0.15,
                   marginRight: worldHeightField * 0.15,
                 }}
-                className={`text-center rounded-md outline-none cursor-default border-0 border-red-400 select-none                  
-                  ${
-                    highlightedFields.has(f.name)
-                      ? "bg-blue-200 dark:bg-blue-800"
+                className={`text-center rounded-md border-0
+                  ${editingFieldName === f.name
+                    ? "outline outline-1 outline-blue-400 bg-white dark:bg-zinc-800 cursor-text"
+                    : highlightedFields.has(f.name)
+                      ? "bg-blue-200 dark:bg-blue-800 outline-none cursor-default select-none"
                       : selected && activeField?.name === f.name
-                        ? "bg-blue-100 dark:bg-blue-700"
+                        ? "bg-blue-100 dark:bg-blue-700 outline-none cursor-default select-none"
                         : nodeData.color
-                          ? "select-none hover:bg-bg5 dark:hover:bg-bg5dark"
-                          : "bg-bg6 dark:bg-bg6dark select-none"
+                          ? "outline-none cursor-default select-none hover:bg-bg5 dark:hover:bg-bg5dark"
+                          : "bg-bg6 dark:bg-bg6dark outline-none cursor-default select-none"
                   }`}
               ></input>
               {(isDraggingEdge || true) && (
@@ -550,24 +609,30 @@ const EditorNode: React.FC<{
             // <div key={index.name} className="relative">
             <>
               <input
+                ref={(el) => { if (el) indexInputRefs.current.set(index.name, el); }}
                 onMouseDown={(e: any) => {
                   e.stopPropagation();
                   if (index.name !== activeIndex?.name) {
-                    setInputMode(false);
+                    setEditingIndexName(null);
                   }
                   setSelectedNode(id);
                   setSelectedEdge(null);
                   setActiveIndex(index);
                 }}
-                onFocus={() => setActiveIndex(index)}
+                onDoubleClick={(e: any) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  pendingCharRef.current = "";
+                  setEditingIndexName(index.name);
+                }}
+                readOnly={editingIndexName !== index.name}
                 defaultValue={index.name}
                 onKeyDown={(e: any) => handleKeyDownInputIndex(index, e)}
                 onBlur={(e) => {
                   e.preventDefault();
-                  // e.stopPropagation();
                   handleCommitIndex(index, e.target.value);
+                  setEditingIndexName(null);
                 }}
-                // readOnly={index.name != activeIndex?.name || !inputMode}
                 placeholder="Index"
                 style={{
                   width: `${worldWidth - 4 - 2 * worldHeightField * 0.15}px`,
@@ -576,15 +641,16 @@ const EditorNode: React.FC<{
                   marginLeft: worldHeightField * 0.15,
                   marginRight: worldHeightField * 0.15,
                 }}
-                className={`text-center rounded-md outline-none cursor-default border-0 border-red-400 select-none
-                  ${
-                    highlightedFields.has(index.name)
-                      ? "bg-blue-200 dark:bg-blue-800"
+                className={`text-center rounded-md border-0
+                  ${editingIndexName === index.name
+                    ? "outline outline-1 outline-blue-400 bg-white dark:bg-zinc-800 cursor-text"
+                    : highlightedFields.has(index.name)
+                      ? "bg-blue-200 dark:bg-blue-800 outline-none cursor-default select-none"
                       : selected && activeIndex?.name === index.name
-                        ? "bg-blue-100 dark:bg-blue-700"
+                        ? "bg-blue-100 dark:bg-blue-700 outline-none cursor-default select-none"
                         : nodeData.color
-                          ? "select-none hover:bg-bg5 dark:hover:bg-bg5dark"
-                          : "bg-bg5 dark:bg-bg5dark select-none"
+                          ? "outline-none cursor-default select-none hover:bg-bg5 dark:hover:bg-bg5dark"
+                          : "bg-bg5 dark:bg-bg5dark outline-none cursor-default select-none"
                   }`}
               ></input>
               {(isDraggingEdge || true) && (
