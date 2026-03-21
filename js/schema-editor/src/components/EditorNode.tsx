@@ -236,7 +236,8 @@ const EditorNode: React.FC<{
       e.stopPropagation();
       if (!field) {
         // "New Field" input — always editable
-        if (e.key === "Enter") {
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
           handleCommitField(null, e.target.value);
           const el = document.getElementById(nodeData.entitySchema.name + "_new") as HTMLInputElement;
           if (el) { el.value = ""; el.focus(); }
