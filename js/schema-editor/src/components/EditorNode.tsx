@@ -409,6 +409,7 @@ const EditorNode: React.FC<{
             onChange={(e) => setEntityName(e.target.value)}
             // readOnly={!(!activeField && inputMode)}
             // readOnly={!inputMode}
+            onMouseDown={(e) => e.stopPropagation()}
             onBlur={(e) => onCommitEntityName(e.target.value)}
             placeholder="EntityName"
             className=" text-center hover:bg-bg7 dark:hover:bg-bg7dark rounded-md focus:outline-dashed border-0 bg-transparent"
