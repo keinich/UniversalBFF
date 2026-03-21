@@ -16,6 +16,7 @@ import {
   getBoardStateFromSchema,
   getSchemaFromBoardState,
   getWorldPosFromViewPos,
+  recomputeInheritedFieldCounts,
 } from "../bl/BoardUtils";
 import { Position } from "../bl/Position";
 import EditorToolbar from "./EditorToolbar";
@@ -90,6 +91,15 @@ const SchemaEditor: React.FC<{
     y: number;
   } | null>(null);
 
+  /**
+   * When non-null, the context menu was opened by right-clicking on this node id
+   * rather than on the empty board canvas.
+   */
+  const [contextMenuNodeId, setContextMenuNodeId] = useState<number | null>(null);
+
+  /** Which submenu item is currently expanded (identified by item label). */
+  const [contextSubmenuOpen, setContextSubmenuOpen] = useState<string | null>(null);
+
   // Panel resizing state
   const [panelWidth, setPanelWidth] = useState<number>(256); // Default 256px (w-64)
   const [isResizingPanel, setIsResizingPanel] = useState<boolean>(false);
@@ -130,6 +140,8 @@ const SchemaEditor: React.FC<{
     if (boardStateString) {
       try {
         const boardState = JSON.parse(boardStateString);
+        // Recompute inheritedFieldCount after deserialization so geometry is correct.
+        recomputeInheritedFieldCounts(boardState);
         return boardState;
       } catch (e) {
         console.error("Failed to parse board state from localStorage:", e);
@@ -276,6 +288,66 @@ const SchemaEditor: React.FC<{
     updateNodes([...nodes, result]);
   }
 
+  /**
+   * Creates a new entity that immediately inherits from `parentName`,
+   * positioned near the context menu click, and creates the inheritance edge.
+   */
+  function createNewInheritedEntity(parentName: string): void {
+    setContextMenuPos(null);
+    setContextMenuNodeId(null);
+    const worldPos = getWorldPosFromViewPos(contextMenuPos!, camera);
+    const entitySchema = new EntitySchema();
+    entitySchema.name = "Entity " + currentId;
+    entitySchema.inheritedEntityName = parentName;
+
+    const parentNode = nodes.find((n) => n.entitySchema.name === parentName);
+    const inheritedFieldCount = parentNode
+      ? parentNode.entitySchema.fields.length
+      : 0;
+
+    const newNode: NodeData = {
+      id: currentId,
+      numInputs: 2,
+      numOutputs: 2,
+      currentPosition: { x: worldPos.x, y: worldPos.y },
+      previousPosition: { x: worldPos.x, y: worldPos.y },
+      inputEdgeIds: [],
+      outputEdgeIds: [],
+      entitySchema: entitySchema,
+      inheritedFieldCount,
+    };
+
+    const inheritEdgeId = `inherit_${currentId}`;
+    const childCenter = {
+      x: worldPos.x + NODE_WIDTH / 2,
+      y: worldPos.y + NODE_FIELD_HEIGHT / 2,
+    };
+
+    const relation = new RelationSchema();
+    relation.foreignEntityName = entitySchema.name;
+    relation.primaryEntityName = parentName;
+
+    const newEdgeData: EdgeData = {
+      id: inheritEdgeId,
+      nodeStartId: currentId,
+      nodeEndId: parentNode ? parentNode.id : 0,
+      outputFieldName: "",
+      inputFieldName: "",
+      relation,
+      previousStartPosition: childCenter,
+      previousEndPosition: childCenter,
+      currentStartPosition: childCenter,
+      currentEndPosition: childCenter,
+      edgeType: "inheritance",
+    };
+
+    setCurrentId((i) => i + 1);
+    updateNodes([...nodes, newNode]);
+    if (parentNode) {
+      updateEdges([...edges, newEdgeData]);
+    }
+  }
+
   function handleCommitField(
     nodeData: NodeData,
     fieldSchema: FieldSchema,
@@ -290,6 +362,14 @@ const SchemaEditor: React.FC<{
     } else {
       nodeData.entitySchema.fields.push(fieldSchema);
     }
+    // Update inheritedFieldCount on any child nodes that inherit from this entity,
+    // so their height and EditorEdge2 geometry stay correct.
+    const parentName = nodeData.entitySchema.name;
+    nodes.forEach((n) => {
+      if (n.entitySchema.inheritedEntityName === parentName) {
+        n.inheritedFieldCount = nodeData.entitySchema.fields.length;
+      }
+    });
     // Spread nodes to produce a new array reference so React re-renders
     // all EditorNode instances and the updated field list becomes visible
     // immediately — without waiting for an unrelated state change.
@@ -317,6 +397,13 @@ const SchemaEditor: React.FC<{
     nodeData.entitySchema.fields = nodeData.entitySchema.fields.filter(
       (f: FieldSchema) => f.name !== fieldSchema.name,
     );
+    // Keep child nodes' inheritedFieldCount in sync.
+    const parentName = nodeData.entitySchema.name;
+    nodes.forEach((n) => {
+      if (n.entitySchema.inheritedEntityName === parentName) {
+        n.inheritedFieldCount = nodeData.entitySchema.fields.length;
+      }
+    });
     updateNodes([...nodes]);
   }
   function handleDeleteIndex(nodeData: NodeData, indexSchema: IndexSchema) {
@@ -326,7 +413,68 @@ const SchemaEditor: React.FC<{
     updateNodes([...nodes]);
   }
   function handleCommitEntityName(nodeData: NodeData, entityName: string) {
+    const oldName = nodeData.entitySchema.name;
     nodeData.entitySchema.name = entityName;
+
+    // Update any child nodes that inherit from this entity's old name.
+    nodes.forEach((n) => {
+      if (n.entitySchema.inheritedEntityName === oldName) {
+        n.entitySchema.inheritedEntityName = entityName;
+      }
+    });
+
+    updateNodes([...nodes]);
+  }
+
+  /**
+   * Set or clear the parent entity for a given node.
+   * Updates `entitySchema.inheritedEntityName`, `NodeData.inheritedFieldCount`,
+   * and creates/removes the corresponding inheritance edge.
+   */
+  function handleSetInherits(nodeData: NodeData, parentName: string | null) {
+    nodeData.entitySchema.inheritedEntityName = parentName;
+
+    // Recompute inheritedFieldCount for this node.
+    const parentNode = parentName
+      ? nodes.find((n) => n.entitySchema.name === parentName)
+      : null;
+    nodeData.inheritedFieldCount = parentNode
+      ? parentNode.entitySchema.fields.length
+      : 0;
+
+    // Remove any existing inheritance edge originating from this node.
+    const inheritEdgeId = `inherit_${nodeData.id}`;
+    let updatedEdges = edges.filter((e) => e.id !== inheritEdgeId);
+
+    if (parentName && parentNode) {
+      // Add the inheritance edge: child → parent
+      const relation = new RelationSchema();
+      relation.foreignEntityName = nodeData.entitySchema.name;
+      relation.primaryEntityName = parentName;
+
+      const childCenter = {
+        x: nodeData.currentPosition.x + NODE_WIDTH / 2,
+        y: nodeData.currentPosition.y + NODE_FIELD_HEIGHT / 2,
+      };
+      updatedEdges = [
+        ...updatedEdges,
+        {
+          id: inheritEdgeId,
+          nodeStartId: nodeData.id,
+          nodeEndId: parentNode.id,
+          outputFieldName: "",
+          inputFieldName: "",
+          relation,
+          previousStartPosition: childCenter,
+          previousEndPosition: childCenter,
+          currentStartPosition: childCenter,
+          currentEndPosition: childCenter,
+          edgeType: "inheritance",
+        },
+      ];
+    }
+
+    updateEdges(updatedEdges);
     updateNodes([...nodes]);
   }
 
@@ -365,6 +513,9 @@ const SchemaEditor: React.FC<{
       setContextMenuPos(
         getBoardPosFromWindowPos({ x: e.clientX, y: e.clientY }),
       );
+      // Right-click on the board canvas (not on a node)
+      setContextMenuNodeId(null);
+      setContextSubmenuOpen(null);
     }
   }
 
@@ -521,11 +672,41 @@ const SchemaEditor: React.FC<{
   const handleKeyDown = (e: any) => {
     if (e.key == "Delete") {
       if (selectedNode) {
-        updateNodes(nodes.filter((n) => n.id != selectedNode));
+        const deletedNode = nodes.find((n) => n.id === selectedNode);
+        if (deletedNode) {
+          const deletedName = deletedNode.entitySchema.name;
+          // Clear inheritance on any child nodes that reference this entity.
+          const updatedNodes = nodes
+            .filter((n) => n.id !== selectedNode)
+            .map((n) => {
+              if (n.entitySchema.inheritedEntityName === deletedName) {
+                n.entitySchema.inheritedEntityName = null;
+                n.inheritedFieldCount = 0;
+              }
+              return n;
+            });
+          // Remove inheritance edges associated with the deleted node.
+          const updatedEdges = edges.filter(
+            (edge) =>
+              edge.nodeStartId !== selectedNode &&
+              edge.nodeEndId !== selectedNode,
+          );
+          updateEdges(updatedEdges);
+          updateNodes(updatedNodes);
+        }
         setSelectedNode(null);
       }
       if (selectedEdge) {
-        updateEdges(edges.filter((e) => e.id != selectedEdge.id));
+        // If this is an inheritance edge, also clear the child's inheritedEntityName.
+        if (selectedEdge.edgeType === "inheritance") {
+          const childNode = nodes.find((n) => n.id === selectedEdge.nodeStartId);
+          if (childNode) {
+            childNode.entitySchema.inheritedEntityName = null;
+            childNode.inheritedFieldCount = 0;
+            updateNodes([...nodes]);
+          }
+        }
+        updateEdges(edges.filter((e) => e.id !== selectedEdge.id));
       }
     }
   };
@@ -565,6 +746,13 @@ const SchemaEditor: React.FC<{
   const backgroundWorldY: number = -camera.scale * camera.pos.y;
   const backgroundWorldWidth: number = camera.scale * 30;
   const backgroundWorldHeight: number = camera.scale * 30;
+
+  // Build a stable map of entityName → fields for inherited-field lookup.
+  const entityFieldsMap = useMemo(() => {
+    const map = new Map<string, FieldSchema[]>();
+    nodes.forEach((n) => map.set(n.entitySchema.name, n.entitySchema.fields));
+    return map;
+  }, [nodes]);
 
   return (
     <div
@@ -612,51 +800,78 @@ const SchemaEditor: React.FC<{
                   isDraggingNode || grabbingBoard ? "none" : undefined,
               }}
             >
-              {nodes.map((n: NodeData) => (
-                <EditorNode
-                  key={n.id}
-                  id={n.id}
-                  nodeData={n}
-                  x={n.currentPosition.x}
-                  y={n.currentPosition.y}
-                  numInputs={n.numInputs}
-                  numOutputs={n.numOutputs}
-                  selected={selectedNode ? selectedNode == n.id : false}
-                  camera={camera}
-                  onMouseDown={handleMouseDownNode}
-                  setSelectedNode={setSelectedNode}
-                  setSelectedEdge={setSelectedEdge}
-                  onMouseEnterInput={handleMouseEnterInput}
-                  onMouseDownOutput={handleMouseDownOutput}
-                  onMouseLeaveInput={handleMouseLeaveInput}
-                  onCommitField={(f: FieldSchema, v: any) =>
-                    handleCommitField(n, f, v)
-                  }
-                  onCommitIndex={(index: IndexSchema, v: any) =>
-                    handleCommitIndex(n, index, v)
-                  }
-                  onCommitEntityName={(entityName: string) =>
-                    handleCommitEntityName(n, entityName)
-                  }
-                  onDeleteField={(f) => handleDeleteField(n, f)}
-                  onDeleteIndex={(i) => handleDeleteIndex(n, i)}
-                  activeField={selectedField}
-                  activeIndex={selectedIndex}
-                  setActiveField={(f) => {
-                    setSelectedField(f);
-                    setSelectedIndex(null);
-                  }}
-                  setActiveIndex={(i) => {
-                    setSelectedIndex(i);
-                    setSelectedField(null);
-                  }}
-                  highlightedFields={
-                    highlightedFields.get(n.id) || new Set<string>()
-                  }
-                  onFieldClick={handleFieldSelection}
-                  isDraggingEdge={newEdge !== null}
-                ></EditorNode>
-              ))}
+              {nodes.map((n: NodeData) => {
+                // Names of all entities except this one, for the inheritance dropdown.
+                const allEntityNames = nodes
+                  .filter((other) => other.id !== n.id)
+                  .map((other) => other.entitySchema.name);
+
+                // Inherited fields: look up parent's fields by name.
+                const parentEntityName = n.entitySchema.inheritedEntityName ?? null;
+                const inheritedFields: FieldSchema[] = parentEntityName
+                  ? (entityFieldsMap.get(parentEntityName) ?? [])
+                  : [];
+
+                return (
+                  <EditorNode
+                    key={n.id}
+                    id={n.id}
+                    nodeData={n}
+                    x={n.currentPosition.x}
+                    y={n.currentPosition.y}
+                    numInputs={n.numInputs}
+                    numOutputs={n.numOutputs}
+                    selected={selectedNode ? selectedNode == n.id : false}
+                    camera={camera}
+                    onMouseDown={handleMouseDownNode}
+                    setSelectedNode={setSelectedNode}
+                    setSelectedEdge={setSelectedEdge}
+                    onMouseEnterInput={handleMouseEnterInput}
+                    onMouseDownOutput={handleMouseDownOutput}
+                    onMouseLeaveInput={handleMouseLeaveInput}
+                    onCommitField={(f: FieldSchema, v: any) =>
+                      handleCommitField(n, f, v)
+                    }
+                    onCommitIndex={(index: IndexSchema, v: any) =>
+                      handleCommitIndex(n, index, v)
+                    }
+                    onCommitEntityName={(entityName: string) =>
+                      handleCommitEntityName(n, entityName)
+                    }
+                    onDeleteField={(f) => handleDeleteField(n, f)}
+                    onDeleteIndex={(i) => handleDeleteIndex(n, i)}
+                    activeField={selectedField}
+                    activeIndex={selectedIndex}
+                    setActiveField={(f) => {
+                      setSelectedField(f);
+                      setSelectedIndex(null);
+                    }}
+                    setActiveIndex={(i) => {
+                      setSelectedIndex(i);
+                      setSelectedField(null);
+                    }}
+                    highlightedFields={
+                      highlightedFields.get(n.id) || new Set<string>()
+                    }
+                    onFieldClick={handleFieldSelection}
+                    isDraggingEdge={newEdge !== null}
+                    allEntityNames={allEntityNames}
+                    onSetInherits={(parentName) =>
+                      handleSetInherits(n, parentName)
+                    }
+                    inheritedFields={inheritedFields}
+                    onContextMenu={(e: React.MouseEvent) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContextMenuPos(
+                        getBoardPosFromWindowPos({ x: e.clientX, y: e.clientY }),
+                      );
+                      setContextMenuNodeId(n.id);
+                      setContextSubmenuOpen(null);
+                    }}
+                  />
+                );
+              })}
               {newEdge && (() => {
                 const newEdgeStartNode = nodes.find(
                   (n) => n.id === newEdge.nodeStartId,
@@ -705,18 +920,100 @@ const SchemaEditor: React.FC<{
                   style={{ cursor: "grabbing" }}
                 />
               )}
-              {contextMenuPos && (
-                <div
-                  style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
-                  className="absolute border rounded-md z-40 border-bg10 dark:border-bg8dark"
-                >
-                  <BoardContextMenu
-                    onNewEntity={() => {
-                      createNewEntity(contextMenuPos);
-                    }}
-                  ></BoardContextMenu>
-                </div>
-              )}
+              {contextMenuPos && (() => {
+                const ctxNode = contextMenuNodeId
+                  ? nodes.find((n) => n.id === contextMenuNodeId) ?? null
+                  : null;
+                const ctxHasParent = !!ctxNode?.entitySchema.inheritedEntityName;
+                // Other entity names (excluding the clicked node itself)
+                const otherEntityNames = nodes
+                  .filter((n) => n.id !== contextMenuNodeId)
+                  .map((n) => n.entitySchema.name);
+
+                const menuItemClass =
+                  "relative px-3 py-1.5 text-left text-sm hover:bg-bg5 dark:hover:bg-bg5dark cursor-pointer select-none flex items-center justify-between gap-2 whitespace-nowrap";
+
+                return (
+                  <div
+                    style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
+                    className="absolute border rounded-md z-40 border-bg10 dark:border-bg8dark overflow-visible"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    {ctxNode ? (
+                      /* ── Node context menu ─────────────────────────────── */
+                      <div className="flex flex-col bg-bg3 dark:bg-bg3dark min-w-[160px]">
+                        {ctxHasParent ? (
+                          /* Remove inheritance */
+                          <div
+                            className={menuItemClass}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              handleSetInherits(ctxNode, null);
+                              setContextMenuPos(null);
+                              setContextMenuNodeId(null);
+                            }}
+                          >
+                            Remove inheritance
+                          </div>
+                        ) : (
+                          /* Add inheritance → submenu of other entity names */
+                          <div
+                            className={menuItemClass}
+                            onMouseEnter={() => setContextSubmenuOpen("addInheritance")}
+                            onMouseLeave={() => setContextSubmenuOpen(null)}
+                          >
+                            <span>Add inheritance</span>
+                            <svg
+                              viewBox="0 0 16 16"
+                              fill="currentColor"
+                              style={{ width: 10, height: 10, flexShrink: 0 }}
+                            >
+                              <path d="M6 3l5 5-5 5V3z" />
+                            </svg>
+                            {contextSubmenuOpen === "addInheritance" && (
+                              <div
+                                className="absolute left-full top-0 bg-bg3 dark:bg-bg3dark border border-bg10 dark:border-bg8dark z-50 min-w-[140px]"
+                                style={{ marginLeft: 2 }}
+                              >
+                                {otherEntityNames.length === 0 ? (
+                                  <div className="px-3 py-1.5 text-sm text-zinc-400 select-none">
+                                    No other entities
+                                  </div>
+                                ) : (
+                                  otherEntityNames.map((name) => (
+                                    <div
+                                      key={name}
+                                      className="px-3 py-1.5 text-sm hover:bg-bg5 dark:hover:bg-bg5dark cursor-pointer select-none whitespace-nowrap"
+                                      onMouseDown={(e) => {
+                                        e.stopPropagation();
+                                        handleSetInherits(ctxNode, name);
+                                        setContextMenuPos(null);
+                                        setContextMenuNodeId(null);
+                                        setContextSubmenuOpen(null);
+                                      }}
+                                    >
+                                      {name}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* ── Board context menu ────────────────────────────── */
+                      <BoardContextMenu
+                        onNewEntity={() => createNewEntity(contextMenuPos)}
+                        allEntityNames={nodes.map((n) => n.entitySchema.name)}
+                        onNewInheritedEntity={(parentName) =>
+                          createNewInheritedEntity(parentName)
+                        }
+                      />
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

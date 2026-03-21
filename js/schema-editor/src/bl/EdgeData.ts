@@ -11,4 +11,6 @@ export interface EdgeData {
   currentStartPosition: { x: number; y: number }
   previousEndPosition: { x: number; y: number }
   currentEndPosition: { x: number; y: number }
+  /** Distinguishes field-reference edges from inheritance edges. Defaults to 'relation'. */
+  edgeType?: 'relation' | 'inheritance'
 }

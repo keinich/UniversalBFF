@@ -10,4 +10,10 @@ export interface NodeData {
   outputEdgeIds: string[]
   entitySchema: EntitySchema
   color?: string
+  /**
+   * Number of inherited fields currently displayed on this node.
+   * Used by EditorEdge2 to correctly compute field handle positions
+   * when inheritance rows are shown above own fields.
+   */
+  inheritedFieldCount?: number
 }

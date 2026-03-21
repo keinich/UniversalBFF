@@ -41,9 +41,28 @@ export function getBoardStateFromSchema(schema: SchemaRoot): BoardState {
     const boardState: any = JSON.parse(boardStateString);
     result.nodes = boardState.nodes;
     result.edges = boardState.edges;
+    // Re-derive inheritedFieldCount for each node from saved inheritedEntityName.
+    recomputeInheritedFieldCounts(result);
   }
   console.log("Parsed board state from schema:", result);
   return result;
+}
+
+/**
+ * After loading a BoardState from JSON, recompute `inheritedFieldCount` on
+ * each node so that EditorEdge2 and EditorNode can compute correct geometry.
+ */
+export function recomputeInheritedFieldCounts(boardState: BoardState): void {
+  const nameToFields = new Map<string, number>();
+  boardState.nodes.forEach((n) => {
+    nameToFields.set(n.entitySchema.name, n.entitySchema.fields.length);
+  });
+  boardState.nodes.forEach((n) => {
+    const parentName = n.entitySchema.inheritedEntityName ?? null;
+    n.inheritedFieldCount = parentName
+      ? (nameToFields.get(parentName) ?? 0)
+      : 0;
+  });
 }
 
 export function getSchemaFromBoardState(boardState: BoardState): SchemaRoot {

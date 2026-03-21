@@ -32,16 +32,18 @@ const NODE_BORDER = 2;
  * wh = camera.scale * NODE_FIELD_HEIGHT
  *   separationBorderHeight = wh * 0.03
  *   separationBorderMargin = wh * 0.1
- *   numFields = entitySchema.fields.length + 2  (header row + new-field input)
- *   numIndices = entitySchema.indices.length + 1 (section header)
+ *   numFields = entitySchema.fields.length + 2 + inheritanceRowCount  (header + inheritance rows + own fields + new-field input)
+ *   numIndices = entitySchema.indices.length + 2 (section header + new index input)
  *   height = wh * (numFields + numIndices) + 6 + separationBorderHeight + separationBorderMargin
  */
 function calcNodeViewHeight(node: NodeData, wh: number): number {
   const borderHeight = 6;
   const separationBorderHeight = wh * 0.03;
   const separationBorderMargin = wh * 0.1;
-  const numFields = node.entitySchema.fields.length + 2;
-  const numIndices = node.entitySchema.indices.length + 1;
+  const inheritedCount = node.inheritedFieldCount ?? 0;
+  const inheritanceRowCount = 1 + inheritedCount; // always 1 "extends" row + N inherited field rows
+  const numFields = node.entitySchema.fields.length + 2 + inheritanceRowCount;
+  const numIndices = node.entitySchema.indices.length + 2;
   return (
     wh * (numFields + numIndices) +
     borderHeight +
@@ -57,11 +59,17 @@ function calcNodeViewHeight(node: NodeData, wh: number): number {
  * index name on a node.
  *
  * Layout (from node border-box top, in view space):
- *   Field row handle Y:
- *     NODE_BORDER + wh * (fieldIndex + 1) + wh / 2
+ *   Row 0: entity name header
+ *   Rows 1..(inheritanceRowCount): inheritance row + inherited field rows
+ *   Rows (1+inheritanceRowCount)..(1+inheritanceRowCount+fields.length-1): own fields
+ *   Row (1+inheritanceRowCount+fields.length): new-field input
+ *   Then indices section header + index rows
+ *
+ *   Own field row handle Y:
+ *     NODE_BORDER + wh * (fieldIndex + 1 + inheritanceRowCount) + wh / 2
  *   Index row handle Y:
  *     NODE_BORDER + wh * (numFieldRows + indexIndex) + sepH + sepM + wh / 2
- *   where numFieldRows = fields.length + 2
+ *   where numFieldRows = fields.length + 2 + inheritanceRowCount
  */
 function calcHandleCenterY(
   node: NodeData,
@@ -69,18 +77,21 @@ function calcHandleCenterY(
   nodeViewY: number,
   wh: number,
 ): number {
+  const inheritedCount = node.inheritedFieldCount ?? 0;
+  const inheritanceRowCount = 1 + inheritedCount;
+
   const fieldIdx = node.entitySchema.fields.findIndex(
     (f) => f.name === fieldName,
   );
 
   if (fieldIdx >= 0) {
-    return nodeViewY + NODE_BORDER + wh * (fieldIdx + 1) + wh / 2;
+    return nodeViewY + NODE_BORDER + wh * (fieldIdx + 1 + inheritanceRowCount) + wh / 2;
   }
 
   const indexIdx = node.entitySchema.indices.findIndex(
     (idx) => idx.name === fieldName,
   );
-  const numFieldRows = node.entitySchema.fields.length + 2;
+  const numFieldRows = node.entitySchema.fields.length + 2 + inheritanceRowCount;
   const sepH = wh * 0.03;
   const sepM = wh * 0.1;
   return (
@@ -103,6 +114,10 @@ function calcHandleCenterY(
  * the cursor position during a drag-to-connect gesture.  In that case a
  * zero-size bounding box is synthesised at the cursor so the router still
  * routes correctly (the 20 px MARGIN around a 0×0 box is harmless).
+ *
+ * Inheritance edges (edgeType === 'inheritance') connect from the top-centre
+ * of the child node to the top-centre of the parent node rather than field
+ * handles.
  */
 function calcEdgeEndpoints(
   edge: EdgeData,
@@ -118,15 +133,17 @@ function calcEdgeEndpoints(
 } {
   const wh = camera.scale * NODE_FIELD_HEIGHT;
   const ww = camera.scale * NODE_WIDTH;
+  const isInheritance = edge.edgeType === 'inheritance';
 
   const startViewPos = getViewPosFromWorldPos(startNode.currentPosition, camera);
+  const startNodeHeight = calcNodeViewHeight(startNode, wh);
 
-  const startCenterY = calcHandleCenterY(
-    startNode,
-    edge.outputFieldName,
-    startViewPos.y,
-    wh,
-  );
+  // ── Start position ────────────────────────────────────────────────────────
+  // Inheritance edges exit from the top-centre of the child node.
+  // Relation edges exit from the field handle on the left or right edge.
+  const startCenterY = isInheritance
+    ? startViewPos.y // top of node
+    : calcHandleCenterY(startNode, edge.outputFieldName, startViewPos.y, wh);
 
   // ── End point ────────────────────────────────────────────────────────────
   let endCenterY: number;
@@ -136,18 +153,16 @@ function calcEdgeEndpoints(
   if (endNode) {
     // Committed edge: anchor to the exact handle on the end node.
     const endViewPos = getViewPosFromWorldPos(endNode.currentPosition, camera);
-    endCenterY = calcHandleCenterY(
-      endNode,
-      edge.inputFieldName,
-      endViewPos.y,
-      wh,
-    );
+    const endNodeHeight = calcNodeViewHeight(endNode, wh);
+    endCenterY = isInheritance
+      ? endViewPos.y // top of parent node
+      : calcHandleCenterY(endNode, edge.inputFieldName, endViewPos.y, wh);
     endViewX = endViewPos.x;
     endNodeBounds = {
       x: endViewPos.x,
       y: endViewPos.y,
       w: ww,
-      h: calcNodeViewHeight(endNode, wh),
+      h: endNodeHeight,
     };
   } else {
     // New-edge drag: use the cursor world position (currentEndPosition).
@@ -161,25 +176,47 @@ function calcEdgeEndpoints(
   }
 
   // ── Side selection ────────────────────────────────────────────────────────
-  // Default: exit right, enter left.  Flip when the start node centre is to
-  // the right of the end target centre (or cursor).
+  // For inheritance edges: use the top-centre of each node as anchor, and
+  // route above (the path exits upward, routes horizontally, then descends).
+  // We achieve this by treating the anchor as being on the "top" side, but
+  // since the router only knows left/right we pick the side that produces the
+  // shortest path and let the Y anchor do the work.
   let startSide: "left" | "right" = "right";
-  let startCenterX = startViewPos.x + ww - NODE_BORDER; // right content-box edge
+  let startCenterX: number;
   let endCenterX: number;
 
-  if (endNode) {
-    endCenterX = endViewX + NODE_BORDER; // left content-box edge of end node
-    if (startViewPos.x + ww / 2 > endViewX + ww / 2) {
-      startSide = "left";
-      startCenterX = startViewPos.x + NODE_BORDER;
-      endCenterX = endViewX + ww - NODE_BORDER;
+  if (isInheritance) {
+    // For inheritance, connect via top-centre of both nodes.
+    startCenterX = startViewPos.x + ww / 2;
+    if (endNode) {
+      const endViewPos = getViewPosFromWorldPos(endNode.currentPosition, camera);
+      endCenterX = endViewPos.x + ww / 2;
+    } else {
+      endCenterX = endViewX;
+    }
+    // startSide is still "right"/"left" in the router, but since both Y values
+    // are at the top of the nodes the path will naturally route above them.
+    startSide = startCenterX <= endCenterX ? "right" : "left";
+    if (startSide === "left") {
+      startCenterX = startViewPos.x + ww / 2;
     }
   } else {
-    // No end node: compare start-node centre against cursor X.
-    endCenterX = endViewX;
-    if (startViewPos.x + ww / 2 > endViewX) {
-      startSide = "left";
-      startCenterX = startViewPos.x + NODE_BORDER;
+    startCenterX = startViewPos.x + ww - NODE_BORDER; // right content-box edge
+
+    if (endNode) {
+      endCenterX = endViewX + NODE_BORDER; // left content-box edge of end node
+      if (startViewPos.x + ww / 2 > endViewX + ww / 2) {
+        startSide = "left";
+        startCenterX = startViewPos.x + NODE_BORDER;
+        endCenterX = endViewX + ww - NODE_BORDER;
+      }
+    } else {
+      // No end node: compare start-node centre against cursor X.
+      endCenterX = endViewX;
+      if (startViewPos.x + ww / 2 > endViewX) {
+        startSide = "left";
+        startCenterX = startViewPos.x + NODE_BORDER;
+      }
     }
   }
 
@@ -187,7 +224,7 @@ function calcEdgeEndpoints(
     x: startViewPos.x,
     y: startViewPos.y,
     w: ww,
-    h: calcNodeViewHeight(startNode, wh),
+    h: startNodeHeight,
   };
 
   return {
@@ -389,6 +426,8 @@ const EditorEdge2: React.FC<EditorEdge2Props> = ({
     onMouseDownEdge();
   }
 
+  const isInheritance = edge.edgeType === 'inheritance';
+
   const { startPos, endPos, startSide, startNodeBounds, endNodeBounds } =
     calcEdgeEndpoints(edge, startNode, endNode, camera);
 
@@ -401,7 +440,7 @@ const EditorEdge2: React.FC<EditorEdge2Props> = ({
   );
 
   // SVG bounding box – encompasses every waypoint plus padding.
-  const pad = 10;
+  const pad = 16;
   const allX = waypoints.map((p) => p.x);
   const allY = waypoints.map((p) => p.y);
   const minX = Math.min(...allX) - pad;
@@ -410,7 +449,31 @@ const EditorEdge2: React.FC<EditorEdge2Props> = ({
   const maxY = Math.max(...allY) + pad;
 
   const pathD = buildRoundedPath(waypoints, 8, minX, minY);
-  const strokeColor = highlighted ? "#3b82f6" : selected ? "#f59e42" : "#888";
+
+  // Colour logic: inheritance edges use indigo; relation edges use grey/blue.
+  let strokeColor: string;
+  if (isInheritance) {
+    strokeColor = selected ? "#a78bfa" : highlighted ? "#7c3aed" : "#6366f1";
+  } else {
+    strokeColor = highlighted ? "#3b82f6" : selected ? "#f59e42" : "#888";
+  }
+
+  // The arrowhead marker id must be unique per colour so SVG doesn't share them.
+  const markerId = isInheritance ? "arrowhead-inherit" : "arrowhead-rel";
+
+  // Compute the direction of the last segment to orient the arrowhead.
+  // The hollow triangle tip should point at endPos (the parent node).
+  const lastPt = waypoints[waypoints.length - 1];
+  const prevPt = waypoints[waypoints.length - 2] ?? waypoints[0];
+  const angle =
+    Math.atan2(lastPt.y - prevPt.y, lastPt.x - prevPt.x) * (180 / Math.PI);
+
+  // Triangle size (in SVG local coords)
+  const TRI_SIZE = 10;
+
+  // End tip of the path (relative to SVG origin) — where the triangle points.
+  const tipX = lastPt.x - minX;
+  const tipY = lastPt.y - minY;
 
   return (
     <svg
@@ -424,6 +487,39 @@ const EditorEdge2: React.FC<EditorEdge2Props> = ({
       width={Math.max(1, maxX - minX)}
       height={Math.max(1, maxY - minY)}
     >
+      <defs>
+        {isInheritance ? (
+          /* Hollow triangle arrowhead for inheritance edges */
+          <marker
+            id={markerId}
+            markerWidth={TRI_SIZE}
+            markerHeight={TRI_SIZE}
+            refX={TRI_SIZE - 1}
+            refY={TRI_SIZE / 2}
+            orient="auto"
+          >
+            <polygon
+              points={`0 0, ${TRI_SIZE} ${TRI_SIZE / 2}, 0 ${TRI_SIZE}`}
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth={1.5}
+            />
+          </marker>
+        ) : (
+          /* Filled arrowhead for relation edges */
+          <marker
+            id={markerId}
+            markerWidth={8}
+            markerHeight={8}
+            refX={7}
+            refY={4}
+            orient="auto"
+          >
+            <path d="M0,0 L8,4 L0,8 Z" fill={strokeColor} />
+          </marker>
+        )}
+      </defs>
+
       {/* Wide transparent stroke for easy click/hover hit-testing */}
       <path
         d={pathD}
@@ -442,10 +538,31 @@ const EditorEdge2: React.FC<EditorEdge2Props> = ({
           ${hovering ? "stroke-opacity-100" : "stroke-opacity-50"}`}
         d={pathD}
         stroke={strokeColor}
-        strokeWidth={2}
+        strokeWidth={isInheritance ? 1.5 : 2}
+        strokeDasharray={isInheritance ? "6 3" : undefined}
         fill="none"
         pointerEvents="stroke"
+        markerEnd={`url(#${markerId})`}
       />
+
+      {/* "inherits" label on inheritance edges */}
+      {isInheritance && (() => {
+        // Place the label at the midpoint of the path's waypoints.
+        const mid = waypoints[Math.floor(waypoints.length / 2)];
+        return (
+          <text
+            x={mid.x - minX}
+            y={mid.y - minY - 5}
+            textAnchor="middle"
+            fontSize={10}
+            fill={strokeColor}
+            opacity={hovering ? 1 : 0.7}
+            style={{ pointerEvents: "none", userSelect: "none" }}
+          >
+            inherits
+          </text>
+        );
+      })()}
     </svg>
   );
 };

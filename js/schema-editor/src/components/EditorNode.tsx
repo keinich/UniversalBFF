@@ -49,6 +49,14 @@ const EditorNode: React.FC<{
   highlightedFields: Set<string>;
   onFieldClick: (nodeId: number, field: FieldSchema) => void;
   isDraggingEdge: boolean;
+  /** Names of all other entities in the schema (for the inheritance dropdown). */
+  allEntityNames: string[];
+  /** Callback to set or clear the parent entity for this node. */
+  onSetInherits: (parentName: string | null) => void;
+  /** Fields inherited from the parent entity (read-only display). */
+  inheritedFields: FieldSchema[];
+  /** Right-click handler forwarded from the parent canvas. */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }> = React.memo(
   ({
     id,
@@ -77,6 +85,10 @@ const EditorNode: React.FC<{
     highlightedFields,
     onFieldClick,
     isDraggingEdge,
+    allEntityNames,
+    onSetInherits,
+    inheritedFields,
+    onContextMenu,
   }) => {
     const [entityName, setEntityName] = useState(nodeData.entitySchema.name);
     const [editingFieldName, setEditingFieldName] = useState<string | null>(null);
@@ -333,15 +345,16 @@ const EditorNode: React.FC<{
     const worldWidth: number = camera.scale * 220;
     const worldHeightField: number = camera.scale * 30;
 
-    const height1 =
-      worldHeightField *
-      (3 +
-        (nodeData.entitySchema.fields.length +
-          nodeData.entitySchema.indices.length));
     const borderHeight = 6;
     const separationBorderHeight = worldHeightField * 0.03;
     const separationBorderMargin = worldHeightField * 0.1;
-    const numFields = nodeData.entitySchema.fields.length + 2; // +2 for entity name and new field input
+
+    const parentName = nodeData.entitySchema.inheritedEntityName ?? null;
+    const hasParent = !!parentName;
+
+    // Inheritance rows only exist when a parent is set: 1 header row + N inherited field rows
+    const inheritanceRowCount = hasParent ? 1 + inheritedFields.length : 0;
+    const numFields = nodeData.entitySchema.fields.length + 2 + inheritanceRowCount; // entity name + inheritance row(s) + own fields + new field input
     const numIndices = nodeData.entitySchema.indices.length + 2; // +1 for "Indices" header row, +1 for new index input
     const height =
       worldHeightField * (numFields + numIndices) +
@@ -349,7 +362,7 @@ const EditorNode: React.FC<{
       separationBorderHeight +
       separationBorderMargin;
     // Offset used when computing absolute connector-dot `top` values for index rows.
-    // It is numFields (fields + entity name + new-field input) + 1 (Indices header row).
+    // It is numFields (all rows above indices section) + 1 (Indices header row).
     const indexRowTopOffset = numFields + 1;
 
     return (
@@ -368,6 +381,7 @@ const EditorNode: React.FC<{
 
           onMouseDown(id, e);
         }}
+        onContextMenu={onContextMenu}
         onBlur={() => {
           setEditingFieldName(null);
           setEditingIndexName(null);
@@ -416,6 +430,89 @@ const EditorNode: React.FC<{
             className=" text-center hover:bg-bg7 dark:hover:bg-bg7dark rounded-md focus:outline-dashed border-0 bg-transparent"
           ></input>
         </div>
+
+        {/* ── Inheritance row — only rendered when a parent is set ──────── */}
+        {hasParent && (
+          <div
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              width: `${worldWidth - 4}px`,
+              height: `${worldHeightField}px`,
+              fontSize: worldHeightField / 2.8,
+              paddingLeft: worldHeightField * 0.25,
+              paddingRight: worldHeightField * 0.2,
+              gap: worldHeightField * 0.25,
+            }}
+            className="flex items-center
+              text-zinc-500 dark:text-zinc-400
+              bg-bg5 dark:bg-bg5dark
+              border-b border-contentBorder dark:border-contentBorderDark
+              select-none"
+          >
+            {/* Small "extends" label */}
+            <span
+              style={{ fontSize: worldHeightField / 3.2, flexShrink: 0 }}
+              className="font-medium text-violet-500 dark:text-violet-400 tracking-wide"
+            >
+              extends
+            </span>
+
+            {/* Parent name pill + clear button */}
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              <span
+                style={{ fontSize: worldHeightField / 2.8 }}
+                className="truncate font-semibold text-violet-600 dark:text-violet-300"
+              >
+                {parentName}
+              </span>
+              <button
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  onSetInherits(null);
+                }}
+                style={{
+                  fontSize: worldHeightField / 2.8,
+                  lineHeight: 1,
+                  flexShrink: 0,
+                }}
+                className="ml-auto text-zinc-400 hover:text-red-400 transition-colors"
+                title="Remove inheritance"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Inherited fields (read-only, grayed out) ────────────────────── */}
+        {hasParent && inheritedFields.map((f: FieldSchema) => (
+          <div
+            key={`inherited_${f.name}`}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              width: `${worldWidth - 4}px`,
+              height: `${worldHeightField}px`,
+              fontSize: worldHeightField / 2.5,
+              paddingLeft: worldHeightField * 0.25,
+              paddingRight: worldHeightField * 0.25,
+            }}
+            className="flex items-center justify-between
+              text-zinc-400 dark:text-zinc-600
+              bg-bg5 dark:bg-bg5dark
+              border-b border-contentBorder dark:border-contentBorderDark
+              select-none italic"
+            title={`Inherited from ${parentName}`}
+          >
+            <span className="truncate">{f.name}</span>
+            <span
+              style={{ fontSize: worldHeightField / 3.2 }}
+              className="text-violet-400 dark:text-violet-600 ml-1 flex-shrink-0 not-italic"
+            >
+              inherited
+            </span>
+          </div>
+        ))}
+
         {nodeData.entitySchema.fields.map((f: any, i: number) => {
           const inputRef: any = React.createRef();
           const outputRef: any = createRef();
@@ -471,7 +568,7 @@ const EditorNode: React.FC<{
                 <div
                   style={{
                     top:
-                      worldHeightField * (i + 1) + (1 / 3) * worldHeightField,
+                      worldHeightField * (i + 1 + inheritanceRowCount) + (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
                     left: `-${worldHeightField / 6}px`,
@@ -493,7 +590,7 @@ const EditorNode: React.FC<{
                 <div
                   style={{
                     top:
-                      worldHeightField * (i + 1) + (1 / 3) * worldHeightField,
+                      worldHeightField * (i + 1 + inheritanceRowCount) + (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
                     right: `-${worldHeightField / 6}px`,
