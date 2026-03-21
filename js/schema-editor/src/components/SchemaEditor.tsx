@@ -290,7 +290,10 @@ const SchemaEditor: React.FC<{
     } else {
       nodeData.entitySchema.fields.push(fieldSchema);
     }
-    saveToLocalStore();
+    // Spread nodes to produce a new array reference so React re-renders
+    // all EditorNode instances and the updated field list becomes visible
+    // immediately — without waiting for an unrelated state change.
+    updateNodes([...nodes]);
   }
 
   function handleCommitIndex(
@@ -307,24 +310,24 @@ const SchemaEditor: React.FC<{
     } else {
       nodeData.entitySchema.indices.push(indexSchema);
     }
-    saveToLocalStore();
+    updateNodes([...nodes]);
   }
 
   function handleDeleteField(nodeData: NodeData, fieldSchema: FieldSchema) {
     nodeData.entitySchema.fields = nodeData.entitySchema.fields.filter(
       (f: FieldSchema) => f.name !== fieldSchema.name,
     );
-    saveToLocalStore();
+    updateNodes([...nodes]);
   }
   function handleDeleteIndex(nodeData: NodeData, indexSchema: IndexSchema) {
     nodeData.entitySchema.indices = nodeData.entitySchema.indices.filter(
       (f: IndexSchema) => f.name !== indexSchema.name,
     );
-    saveToLocalStore();
+    updateNodes([...nodes]);
   }
   function handleCommitEntityName(nodeData: NodeData, entityName: string) {
     nodeData.entitySchema.name = entityName;
-    saveToLocalStore();
+    updateNodes([...nodes]);
   }
 
   function applyScale(e: any) {
