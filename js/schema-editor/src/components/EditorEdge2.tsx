@@ -12,6 +12,72 @@ export interface NodeBounds {
   h: number; // height
 }
 
+type Side = 'top' | 'bottom' | 'left' | 'right';
+
+function getAnchorPoint(bounds: NodeBounds, side: Side): { x: number; y: number } {
+  const cx = bounds.x + bounds.w / 2;
+  const cy = bounds.y + bounds.h / 2;
+  switch (side) {
+    case 'top':    return { x: cx, y: bounds.y };
+    case 'bottom': return { x: cx, y: bounds.y + bounds.h };
+    case 'left':   return { x: bounds.x, y: cy };
+    case 'right':  return { x: bounds.x + bounds.w, y: cy };
+  }
+}
+
+function isInsideBounds(pt: { x: number; y: number }, b: NodeBounds, margin = 4): boolean {
+  return pt.x > b.x - margin && pt.x < b.x + b.w + margin &&
+         pt.y > b.y - margin && pt.y < b.y + b.h + margin;
+}
+
+function chooseBestSides(
+  startBounds: NodeBounds,
+  endBounds: NodeBounds,
+): { startSide: Side; endSide: Side } {
+  const SIDES: Side[] = ['top', 'bottom', 'left', 'right'];
+  const CLIP_PENALTY = 10000;
+  // Left/right sides are only allowed when one node lies completely to the
+  // left of the other (right edge of leftmost < left edge of rightmost).
+  // If they overlap horizontally at all, forbid horizontal sides entirely.
+  const noHorizontalOverlap =
+    startBounds.x + startBounds.w < endBounds.x ||
+    endBounds.x + endBounds.w < startBounds.x;
+  const H_SIDE_FORBIDDEN = !noHorizontalOverlap;
+  let bestCost = Infinity;
+  let bestStart: Side = 'top';
+  let bestEnd: Side = 'bottom';
+
+  for (const ss of SIDES) {
+    for (const es of SIDES) {
+      const sa = getAnchorPoint(startBounds, ss);
+      const ea = getAnchorPoint(endBounds, es);
+      let cost = Math.abs(sa.x - ea.x) + Math.abs(sa.y - ea.y);
+
+      // Forbid left/right when nodes overlap horizontally
+      if (H_SIDE_FORBIDDEN && (ss === 'left' || ss === 'right')) cost += CLIP_PENALTY;
+      if (H_SIDE_FORBIDDEN && (es === 'left' || es === 'right')) cost += CLIP_PENALTY;
+
+      // Determine the L-shape corner for this pair
+      const isHStart = ss === 'left' || ss === 'right';
+      const corner = isHStart
+        ? { x: ea.x, y: sa.y }  // horizontal-first: corner aligns with ea.x
+        : { x: sa.x, y: ea.y }; // vertical-first: corner aligns with sa.x
+
+      if (isInsideBounds(corner, startBounds) || isInsideBounds(corner, endBounds)) {
+        cost += CLIP_PENALTY;
+      }
+
+      if (cost < bestCost) {
+        bestCost = cost;
+        bestStart = ss;
+        bestEnd = es;
+      }
+    }
+  }
+
+  return { startSide: bestStart, endSide: bestEnd };
+}
+
 // ─── Layout constants (must match EditorNode.tsx) ────────────────────────────
 
 /** Fixed pixel width of every node card */
@@ -41,7 +107,9 @@ function calcNodeViewHeight(node: NodeData, wh: number): number {
   const separationBorderHeight = wh * 0.03;
   const separationBorderMargin = wh * 0.1;
   const inheritedCount = node.inheritedFieldCount ?? 0;
-  const inheritanceRowCount = 1 + inheritedCount; // always 1 "extends" row + N inherited field rows
+  // Mirror EditorNode exactly: inheritance rows only exist when the node has a parent.
+  const hasParent = !!node.entitySchema.inheritedEntityName;
+  const inheritanceRowCount = hasParent ? 1 + inheritedCount : 0;
   const numFields = node.entitySchema.fields.length + 2 + inheritanceRowCount;
   const numIndices = node.entitySchema.indices.length + 2;
   return (
@@ -128,6 +196,8 @@ function calcEdgeEndpoints(
   startPos: { x: number; y: number };
   endPos: { x: number; y: number };
   startSide: "left" | "right";
+  inheritStartSide?: Side;
+  inheritEndSide?: Side;
   startNodeBounds: NodeBounds;
   endNodeBounds: NodeBounds;
 } {
@@ -138,14 +208,50 @@ function calcEdgeEndpoints(
   const startViewPos = getViewPosFromWorldPos(startNode.currentPosition, camera);
   const startNodeHeight = calcNodeViewHeight(startNode, wh);
 
-  // ── Start position ────────────────────────────────────────────────────────
-  // Inheritance edges exit from the top-centre of the child node.
-  // Relation edges exit from the field handle on the left or right edge.
-  const startCenterY = isInheritance
-    ? startViewPos.y // top of node
-    : calcHandleCenterY(startNode, edge.outputFieldName, startViewPos.y, wh);
+  // ── Inheritance edges: dynamic side selection ────────────────────────────
+  // Evaluate all 16 side-pair combinations and pick the one that yields the
+  // shortest path without the L-shape corner clipping through either node.
+  if (isInheritance) {
+    const startNodeBounds: NodeBounds = {
+      x: startViewPos.x, y: startViewPos.y, w: ww, h: startNodeHeight,
+    };
 
-  // ── End point ────────────────────────────────────────────────────────────
+    if (endNode) {
+      const endViewPos = getViewPosFromWorldPos(endNode.currentPosition, camera);
+      const endNodeHeight = calcNodeViewHeight(endNode, wh);
+      const endNodeBounds: NodeBounds = {
+        x: endViewPos.x, y: endViewPos.y, w: ww, h: endNodeHeight,
+      };
+      const { startSide: ss, endSide: es } = chooseBestSides(startNodeBounds, endNodeBounds);
+      return {
+        startPos: getAnchorPoint(startNodeBounds, ss),
+        endPos:   getAnchorPoint(endNodeBounds,   es),
+        startSide: 'right' as const,
+        inheritStartSide: ss,
+        inheritEndSide:   es,
+        startNodeBounds,
+        endNodeBounds,
+      };
+    } else {
+      // Drag preview: synthesise a tiny bounds at the cursor
+      const cursorView = getViewPosFromWorldPos(edge.currentEndPosition, camera);
+      const cursorBounds: NodeBounds = { x: cursorView.x, y: cursorView.y, w: 0, h: 0 };
+      const { startSide: ss } = chooseBestSides(startNodeBounds, cursorBounds);
+      return {
+        startPos: getAnchorPoint(startNodeBounds, ss),
+        endPos:   cursorView,
+        startSide: 'right' as const,
+        inheritStartSide: ss,
+        inheritEndSide:   'left' as const,
+        startNodeBounds,
+        endNodeBounds: cursorBounds,
+      };
+    }
+  }
+
+  // ── Relation edges ────────────────────────────────────────────────────────
+  const startHandleY = calcHandleCenterY(startNode, edge.outputFieldName, startViewPos.y, wh);
+
   let endCenterY: number;
   let endViewX: number;
   let endNodeBounds: NodeBounds;
@@ -154,9 +260,7 @@ function calcEdgeEndpoints(
     // Committed edge: anchor to the exact handle on the end node.
     const endViewPos = getViewPosFromWorldPos(endNode.currentPosition, camera);
     const endNodeHeight = calcNodeViewHeight(endNode, wh);
-    endCenterY = isInheritance
-      ? endViewPos.y // top of parent node
-      : calcHandleCenterY(endNode, edge.inputFieldName, endViewPos.y, wh);
+    endCenterY = calcHandleCenterY(endNode, edge.inputFieldName, endViewPos.y, wh);
     endViewX = endViewPos.x;
     endNodeBounds = {
       x: endViewPos.x,
@@ -168,55 +272,30 @@ function calcEdgeEndpoints(
     // New-edge drag: use the cursor world position (currentEndPosition).
     const cursorView = getViewPosFromWorldPos(edge.currentEndPosition, camera);
     endCenterY = cursorView.y;
-    // endViewX is used below only to determine startSide; treat the cursor as
-    // a zero-width target so the side comparison is purely horizontal.
     endViewX = cursorView.x;
-    // Zero-size bounds at the cursor — the router adds its own MARGIN clearance.
     endNodeBounds = { x: cursorView.x, y: cursorView.y, w: 0, h: 0 };
   }
 
   // ── Side selection ────────────────────────────────────────────────────────
-  // For inheritance edges: use the top-centre of each node as anchor, and
-  // route above (the path exits upward, routes horizontally, then descends).
-  // We achieve this by treating the anchor as being on the "top" side, but
-  // since the router only knows left/right we pick the side that produces the
-  // shortest path and let the Y anchor do the work.
   let startSide: "left" | "right" = "right";
   let startCenterX: number;
   let endCenterX: number;
 
-  if (isInheritance) {
-    // For inheritance, connect via top-centre of both nodes.
-    startCenterX = startViewPos.x + ww / 2;
-    if (endNode) {
-      const endViewPos = getViewPosFromWorldPos(endNode.currentPosition, camera);
-      endCenterX = endViewPos.x + ww / 2;
-    } else {
-      endCenterX = endViewX;
-    }
-    // startSide is still "right"/"left" in the router, but since both Y values
-    // are at the top of the nodes the path will naturally route above them.
-    startSide = startCenterX <= endCenterX ? "right" : "left";
-    if (startSide === "left") {
-      startCenterX = startViewPos.x + ww / 2;
+  startCenterX = startViewPos.x + ww - NODE_BORDER; // right content-box edge
+
+  if (endNode) {
+    endCenterX = endViewX + NODE_BORDER; // left content-box edge of end node
+    if (startViewPos.x + ww / 2 > endViewX + ww / 2) {
+      startSide = "left";
+      startCenterX = startViewPos.x + NODE_BORDER;
+      endCenterX = endViewX + ww - NODE_BORDER;
     }
   } else {
-    startCenterX = startViewPos.x + ww - NODE_BORDER; // right content-box edge
-
-    if (endNode) {
-      endCenterX = endViewX + NODE_BORDER; // left content-box edge of end node
-      if (startViewPos.x + ww / 2 > endViewX + ww / 2) {
-        startSide = "left";
-        startCenterX = startViewPos.x + NODE_BORDER;
-        endCenterX = endViewX + ww - NODE_BORDER;
-      }
-    } else {
-      // No end node: compare start-node centre against cursor X.
-      endCenterX = endViewX;
-      if (startViewPos.x + ww / 2 > endViewX) {
-        startSide = "left";
-        startCenterX = startViewPos.x + NODE_BORDER;
-      }
+    // No end node: compare start-node centre against cursor X.
+    endCenterX = endViewX;
+    if (startViewPos.x + ww / 2 > endViewX) {
+      startSide = "left";
+      startCenterX = startViewPos.x + NODE_BORDER;
     }
   }
 
@@ -228,7 +307,7 @@ function calcEdgeEndpoints(
   };
 
   return {
-    startPos: { x: startCenterX, y: startCenterY },
+    startPos: { x: startCenterX, y: startHandleY },
     endPos: { x: endCenterX, y: endCenterY },
     startSide,
     startNodeBounds,
@@ -379,6 +458,80 @@ function computeWaypoints(
   ];
 }
 
+/**
+ * Compute waypoints for an inheritance edge.
+ * Routes orthogonally with the fewest turns, respecting the exit/entry sides.
+ *
+ * Side direction:
+ *   left/right → horizontal first segment
+ *   top/bottom → vertical first segment
+ */
+function computeInheritanceEdgePath(
+  sa: { x: number; y: number },
+  startSide: Side,
+  ea: { x: number; y: number },
+  endSide: Side,
+  startBounds: NodeBounds,
+  endBounds: NodeBounds,
+): { x: number; y: number }[] {
+  const MARGIN = 20;
+  const isHStart = startSide === 'left' || startSide === 'right';
+  const isHEnd   = endSide   === 'left' || endSide   === 'right';
+
+  // ── Both vertical ────────────────────────────────────────────────────────────
+  if (!isHStart && !isHEnd) {
+    if (startSide !== endSide) {
+      // Facing pair (bottom→top or top→bottom): midY sits in the gap.
+      const goingDown = startSide === 'bottom';
+      if ((goingDown && sa.y < ea.y) || (!goingDown && sa.y > ea.y)) {
+        const midY = (sa.y + ea.y) / 2;
+        if (Math.abs(sa.x - ea.x) < 1) return [sa, ea];
+        return [sa, { x: sa.x, y: midY }, { x: ea.x, y: midY }, ea];
+      }
+      // Gap closed (nodes overlap in Y) — fall through to rail.
+    }
+    // Same-direction (top→top / bottom→bottom) or overlap fallback:
+    // use a rail completely outside both nodes.
+    const railY = startSide === 'top'
+      ? Math.min(startBounds.y, endBounds.y) - MARGIN
+      : Math.max(startBounds.y + startBounds.h, endBounds.y + endBounds.h) + MARGIN;
+    if (Math.abs(sa.x - ea.x) < 1) return [sa, { x: sa.x, y: railY }, ea];
+    return [sa, { x: sa.x, y: railY }, { x: ea.x, y: railY }, ea];
+  }
+
+  // ── Both horizontal ──────────────────────────────────────────────────────────
+  if (isHStart && isHEnd) {
+    if (startSide !== endSide) {
+      // Facing pair (right→left or left→right): midX sits in the gap.
+      const goingRight = startSide === 'right';
+      if ((goingRight && sa.x < ea.x) || (!goingRight && sa.x > ea.x)) {
+        const midX = (sa.x + ea.x) / 2;
+        if (Math.abs(sa.y - ea.y) < 1) return [sa, ea];
+        return [sa, { x: midX, y: sa.y }, { x: midX, y: ea.y }, ea];
+      }
+      // No gap — fall through to rail.
+    }
+    // Same-direction or no-gap fallback: rail outside both nodes.
+    const railX = startSide === 'right'
+      ? Math.max(startBounds.x + startBounds.w, endBounds.x + endBounds.w) + MARGIN
+      : Math.min(startBounds.x, endBounds.x) - MARGIN;
+    if (Math.abs(sa.y - ea.y) < 1) return [sa, { x: railX, y: sa.y }, ea];
+    return [sa, { x: railX, y: sa.y }, { x: railX, y: ea.y }, ea];
+  }
+
+  // ── Mixed: H→V or V→H (single L-shape turn) ─────────────────────────────────
+  if (isHStart) {
+    // Horizontal start → vertical end: corner at (ea.x, sa.y)
+    const corner = { x: ea.x, y: sa.y };
+    if (Math.abs(corner.x - sa.x) < 1 || Math.abs(corner.y - ea.y) < 1) return [sa, ea];
+    return [sa, corner, ea];
+  }
+  // Vertical start → horizontal end: corner at (sa.x, ea.y)
+  const corner = { x: sa.x, y: ea.y };
+  if (Math.abs(corner.x - ea.x) < 1 || Math.abs(corner.y - sa.y) < 1) return [sa, ea];
+  return [sa, corner, ea];
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 /**
@@ -428,16 +581,12 @@ const EditorEdge2: React.FC<EditorEdge2Props> = ({
 
   const isInheritance = edge.edgeType === 'inheritance';
 
-  const { startPos, endPos, startSide, startNodeBounds, endNodeBounds } =
+  const { startPos, endPos, startSide, inheritStartSide, inheritEndSide, startNodeBounds, endNodeBounds } =
     calcEdgeEndpoints(edge, startNode, endNode, camera);
 
-  const waypoints = computeWaypoints(
-    startPos,
-    endPos,
-    startSide,
-    startNodeBounds,
-    endNodeBounds,
-  );
+  const waypoints = isInheritance
+    ? [startPos, endPos]
+    : computeWaypoints(startPos, endPos, startSide, startNodeBounds, endNodeBounds);
 
   // SVG bounding box – encompasses every waypoint plus padding.
   const pad = 16;
@@ -448,7 +597,11 @@ const EditorEdge2: React.FC<EditorEdge2Props> = ({
   const maxX = Math.max(...allX) + pad;
   const maxY = Math.max(...allY) + pad;
 
-  const pathD = buildRoundedPath(waypoints, 8, minX, minY);
+  // Inheritance edges are a plain straight line; relation edges use the
+  // orthogonal rounded router (which only handles axis-aligned segments).
+  const pathD = isInheritance
+    ? `M ${startPos.x - minX} ${startPos.y - minY} L ${endPos.x - minX} ${endPos.y - minY}`
+    : buildRoundedPath(waypoints, 8, minX, minY);
 
   // Colour logic: inheritance edges use indigo; relation edges use grey/blue.
   let strokeColor: string;
@@ -458,8 +611,11 @@ const EditorEdge2: React.FC<EditorEdge2Props> = ({
     strokeColor = highlighted ? "#3b82f6" : selected ? "#f59e42" : "#888";
   }
 
-  // The arrowhead marker id must be unique per colour so SVG doesn't share them.
-  const markerId = isInheritance ? "arrowhead-inherit" : "arrowhead-rel";
+  // Marker IDs must be unique per edge instance — shared IDs across SVG elements
+  // cause the browser to reuse the wrong definition, making arrows invisible.
+  const markerId = isInheritance
+    ? `arrowhead-inherit-${edge.id}`
+    : `arrowhead-rel-${edge.id}`;
 
   // Compute the direction of the last segment to orient the arrowhead.
   // The hollow triangle tip should point at endPos (the parent node).
@@ -494,7 +650,7 @@ const EditorEdge2: React.FC<EditorEdge2Props> = ({
             id={markerId}
             markerWidth={TRI_SIZE}
             markerHeight={TRI_SIZE}
-            refX={TRI_SIZE - 1}
+            refX={TRI_SIZE}
             refY={TRI_SIZE / 2}
             orient="auto"
           >
