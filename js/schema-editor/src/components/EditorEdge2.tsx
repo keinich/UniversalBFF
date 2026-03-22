@@ -146,7 +146,8 @@ function calcHandleCenterY(
   wh: number,
 ): number {
   const inheritedCount = node.inheritedFieldCount ?? 0;
-  const inheritanceRowCount = 1 + inheritedCount;
+  const hasParent = !!node.entitySchema.inheritedEntityName;
+  const inheritanceRowCount = hasParent ? 1 + inheritedCount : 0;
 
   const fieldIdx = node.entitySchema.fields.findIndex(
     (f) => f.name === fieldName,
