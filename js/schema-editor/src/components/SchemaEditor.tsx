@@ -304,6 +304,9 @@ const SchemaEditor: React.FC<{
     const inheritedFieldCount = parentNode
       ? parentNode.entitySchema.fields.length
       : 0;
+    const inheritedFieldNames = parentNode
+      ? parentNode.entitySchema.fields.map((f) => f.name)
+      : [];
 
     const newNode: NodeData = {
       id: currentId,
@@ -315,6 +318,7 @@ const SchemaEditor: React.FC<{
       outputEdgeIds: [],
       entitySchema: entitySchema,
       inheritedFieldCount,
+      inheritedFieldNames,
     };
 
     const inheritEdgeId = `inherit_${currentId}`;
@@ -362,12 +366,13 @@ const SchemaEditor: React.FC<{
     } else {
       nodeData.entitySchema.fields.push(fieldSchema);
     }
-    // Update inheritedFieldCount on any child nodes that inherit from this entity,
-    // so their height and EditorEdge2 geometry stay correct.
+    // Update inheritedFieldCount/inheritedFieldNames on any child nodes that
+    // inherit from this entity, so their height and EditorEdge2 geometry stay correct.
     const parentName = nodeData.entitySchema.name;
     nodes.forEach((n) => {
       if (n.entitySchema.inheritedEntityName === parentName) {
         n.inheritedFieldCount = nodeData.entitySchema.fields.length;
+        n.inheritedFieldNames = nodeData.entitySchema.fields.map((f) => f.name);
       }
     });
     // Spread nodes to produce a new array reference so React re-renders
@@ -397,11 +402,12 @@ const SchemaEditor: React.FC<{
     nodeData.entitySchema.fields = nodeData.entitySchema.fields.filter(
       (f: FieldSchema) => f.name !== fieldSchema.name,
     );
-    // Keep child nodes' inheritedFieldCount in sync.
+    // Keep child nodes' inheritedFieldCount/inheritedFieldNames in sync.
     const parentName = nodeData.entitySchema.name;
     nodes.forEach((n) => {
       if (n.entitySchema.inheritedEntityName === parentName) {
         n.inheritedFieldCount = nodeData.entitySchema.fields.length;
+        n.inheritedFieldNames = nodeData.entitySchema.fields.map((f) => f.name);
       }
     });
     updateNodes([...nodes]);
@@ -441,6 +447,9 @@ const SchemaEditor: React.FC<{
     nodeData.inheritedFieldCount = parentNode
       ? parentNode.entitySchema.fields.length
       : 0;
+    nodeData.inheritedFieldNames = parentNode
+      ? parentNode.entitySchema.fields.map((f) => f.name)
+      : [];
 
     // Remove any existing inheritance edge originating from this node.
     const inheritEdgeId = `inherit_${nodeData.id}`;
@@ -682,6 +691,7 @@ const SchemaEditor: React.FC<{
               if (n.entitySchema.inheritedEntityName === deletedName) {
                 n.entitySchema.inheritedEntityName = null;
                 n.inheritedFieldCount = 0;
+                n.inheritedFieldNames = [];
               }
               return n;
             });
@@ -703,6 +713,7 @@ const SchemaEditor: React.FC<{
           if (childNode) {
             childNode.entitySchema.inheritedEntityName = null;
             childNode.inheritedFieldCount = 0;
+            childNode.inheritedFieldNames = [];
             updateNodes([...nodes]);
           }
         }

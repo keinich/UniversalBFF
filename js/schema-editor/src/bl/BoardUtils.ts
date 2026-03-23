@@ -53,15 +53,15 @@ export function getBoardStateFromSchema(schema: SchemaRoot): BoardState {
  * each node so that EditorEdge2 and EditorNode can compute correct geometry.
  */
 export function recomputeInheritedFieldCounts(boardState: BoardState): void {
-  const nameToFields = new Map<string, number>();
+  const nameToNode = new Map<string, (typeof boardState.nodes)[number]>();
   boardState.nodes.forEach((n) => {
-    nameToFields.set(n.entitySchema.name, n.entitySchema.fields.length);
+    nameToNode.set(n.entitySchema.name, n);
   });
   boardState.nodes.forEach((n) => {
     const parentName = n.entitySchema.inheritedEntityName ?? null;
-    n.inheritedFieldCount = parentName
-      ? (nameToFields.get(parentName) ?? 0)
-      : 0;
+    const parentNode = parentName ? nameToNode.get(parentName) : undefined;
+    n.inheritedFieldCount = parentNode ? parentNode.entitySchema.fields.length : 0;
+    n.inheritedFieldNames = parentNode ? parentNode.entitySchema.fields.map((f) => f.name) : [];
   });
 }
 

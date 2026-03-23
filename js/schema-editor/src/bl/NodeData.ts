@@ -16,4 +16,10 @@ export interface NodeData {
    * when inheritance rows are shown above own fields.
    */
   inheritedFieldCount?: number
+  /**
+   * Ordered list of inherited field names currently displayed on this node.
+   * Used by EditorEdge2 to find the row index of an inherited field so that
+   * edges can be connected to inherited fields as well as own fields.
+   */
+  inheritedFieldNames?: string[]
 }

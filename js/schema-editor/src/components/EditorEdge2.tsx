@@ -157,6 +157,18 @@ function calcHandleCenterY(
     return nodeViewY + NODE_BORDER + wh * (fieldIdx + 1 + inheritanceRowCount) + wh / 2;
   }
 
+  // Check if fieldName belongs to an inherited field row.
+  // Inherited field at index inh is at:
+  //   Row 0: entity name header
+  //   Row 1: "extends" header row
+  //   Row inh+2: inh-th inherited field
+  const inhIdx = node.inheritedFieldNames
+    ? node.inheritedFieldNames.indexOf(fieldName)
+    : -1;
+  if (inhIdx >= 0) {
+    return nodeViewY + NODE_BORDER + wh * (inhIdx + 2) + wh / 2;
+  }
+
   const indexIdx = node.entitySchema.indices.findIndex(
     (idx) => idx.name === fieldName,
   );

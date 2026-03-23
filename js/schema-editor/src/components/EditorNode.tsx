@@ -484,34 +484,67 @@ const EditorNode: React.FC<{
           </div>
         )}
 
-        {/* ── Inherited fields (read-only, grayed out) ────────────────────── */}
-        {hasParent && inheritedFields.map((f: FieldSchema) => (
-          <div
-            key={`inherited_${f.name}`}
-            onMouseDown={(e) => e.stopPropagation()}
-            style={{
-              width: `${worldWidth - 4}px`,
-              height: `${worldHeightField}px`,
-              fontSize: worldHeightField / 2.5,
-              paddingLeft: worldHeightField * 0.25,
-              paddingRight: worldHeightField * 0.25,
-            }}
-            className="flex items-center justify-between
-              text-zinc-400 dark:text-zinc-600
-              bg-bg5 dark:bg-bg5dark
-              border-b border-contentBorder dark:border-contentBorderDark
-              select-none italic"
-            title={`Inherited from ${parentName}`}
-          >
-            <span className="truncate">{f.name}</span>
-            <span
-              style={{ fontSize: worldHeightField / 3.2 }}
-              className="text-violet-400 dark:text-violet-600 ml-1 flex-shrink-0 not-italic"
-            >
-              inherited
-            </span>
-          </div>
-        ))}
+        {/* ── Inherited fields (read-only, with connectors) ───────────────── */}
+        {hasParent && inheritedFields.map((f: FieldSchema, i: number) => {
+          const inhInputRef: any = React.createRef();
+          const inhOutputRef: any = React.createRef();
+          return (
+            <React.Fragment key={`inherited_${f.name}`}>
+              <div
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{
+                  width: `${worldWidth - 4}px`,
+                  height: `${worldHeightField}px`,
+                  fontSize: worldHeightField / 2.5,
+                  paddingLeft: worldHeightField * 0.25,
+                  paddingRight: worldHeightField * 0.25,
+                }}
+                className="flex items-center justify-between
+                  text-zinc-400 dark:text-zinc-600
+                  bg-bg5 dark:bg-bg5dark
+                  border-b border-contentBorder dark:border-contentBorderDark
+                  select-none italic"
+                title={`Inherited from ${parentName}`}
+              >
+                <span className="truncate">{f.name}</span>
+                <span
+                  style={{ fontSize: worldHeightField / 3.2 }}
+                  className="text-violet-400 dark:text-violet-600 ml-1 flex-shrink-0 not-italic"
+                >
+                  inherited
+                </span>
+              </div>
+              {/* Left (input) connector dot */}
+              <div
+                style={{
+                  top: worldHeightField * (i + 2) + (1 / 3) * worldHeightField,
+                  width: worldHeightField / 3,
+                  height: worldHeightField / 3,
+                  left: `-${worldHeightField / 6}px`,
+                  backgroundColor: nodeData.color,
+                }}
+                ref={inhInputRef}
+                className="absolute rounded-full cursor-crosshair hover:bg-red-400 pointer-events-auto"
+                onMouseEnter={(e) => handleMouseEnterInput(inhInputRef, e, f.name)}
+                onMouseLeave={() => onMouseLeaveInput(id, f.name)}
+                onMouseDown={(e) => handleMouseDownOutput(inhInputRef, e, f.name)}
+              ></div>
+              {/* Right (output) connector dot */}
+              <div
+                style={{
+                  top: worldHeightField * (i + 2) + (1 / 3) * worldHeightField,
+                  width: worldHeightField / 3,
+                  height: worldHeightField / 3,
+                  right: `-${worldHeightField / 6}px`,
+                  backgroundColor: nodeData.color,
+                }}
+                ref={inhOutputRef}
+                className="absolute rounded-full cursor-crosshair hover:bg-red-400 pointer-events-auto"
+                onMouseDown={(e) => handleMouseDownOutput(inhOutputRef, e, f.name)}
+              ></div>
+            </React.Fragment>
+          );
+        })}
 
         {nodeData.entitySchema.fields.map((f: any, i: number) => {
           const inputRef: any = React.createRef();
