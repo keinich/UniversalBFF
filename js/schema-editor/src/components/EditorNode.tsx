@@ -540,6 +540,8 @@ const EditorNode: React.FC<{
                 }}
                 ref={inhOutputRef}
                 className="absolute rounded-full cursor-crosshair hover:bg-red-400 pointer-events-auto"
+                onMouseEnter={(e) => handleMouseEnterInput(inhOutputRef, e, f.name)}
+                onMouseLeave={() => onMouseLeaveInput(id, f.name)}
                 onMouseDown={(e) => handleMouseDownOutput(inhOutputRef, e, f.name)}
               ></div>
             </React.Fragment>
@@ -632,6 +634,10 @@ const EditorNode: React.FC<{
                   ref={outputRef}
                   className="absolute rounded-full
                     cursor-crosshair hover:bg-red-400 pointer-events-auto"
+                  onMouseEnter={(e) =>
+                    handleMouseEnterInput(outputRef, e, f.name)
+                  }
+                  onMouseLeave={() => onMouseLeaveInput(id, f.name)}
                   onMouseDown={(e) =>
                     handleMouseDownOutput(outputRef, e, f.name)
                   }
@@ -823,6 +829,10 @@ const EditorNode: React.FC<{
                   ref={outputRef}
                   className="absolute rounded-full
                     cursor-crosshair hover:bg-red-400 pointer-events-auto"
+                  onMouseEnter={(e) =>
+                    handleMouseEnterInput(outputRef, e, index.name)
+                  }
+                  onMouseLeave={() => onMouseLeaveInput(id, index.name)}
                   onMouseDown={(e) =>
                     handleMouseDownOutput(outputRef, e, index.name)
                   }
