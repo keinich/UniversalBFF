@@ -95,10 +95,14 @@ const SchemaEditor: React.FC<{
    * When non-null, the context menu was opened by right-clicking on this node id
    * rather than on the empty board canvas.
    */
-  const [contextMenuNodeId, setContextMenuNodeId] = useState<number | null>(null);
+  const [contextMenuNodeId, setContextMenuNodeId] = useState<number | null>(
+    null,
+  );
 
   /** Which submenu item is currently expanded (identified by item label). */
-  const [contextSubmenuOpen, setContextSubmenuOpen] = useState<string | null>(null);
+  const [contextSubmenuOpen, setContextSubmenuOpen] = useState<string | null>(
+    null,
+  );
 
   // Panel resizing state
   const [panelWidth, setPanelWidth] = useState<number>(256); // Default 256px (w-64)
@@ -709,7 +713,9 @@ const SchemaEditor: React.FC<{
       if (selectedEdge) {
         // If this is an inheritance edge, also clear the child's inheritedEntityName.
         if (selectedEdge.edgeType === "inheritance") {
-          const childNode = nodes.find((n) => n.id === selectedEdge.nodeStartId);
+          const childNode = nodes.find(
+            (n) => n.id === selectedEdge.nodeStartId,
+          );
           if (childNode) {
             childNode.entitySchema.inheritedEntityName = null;
             childNode.inheritedFieldCount = 0;
@@ -796,7 +802,7 @@ const SchemaEditor: React.FC<{
                 setGrabbingBoard(false);
               }}
               onKeyDown={(e) => handleKeyDown(e)}
-              className="relative w-full  h-full   border-4 border-green-400 overflow-hidden"
+              className="relative w-full  h-full   border-0 border-green-400 overflow-hidden"
               style={{
                 backgroundImage:
                   "radial-gradient(circle, #b8b8b8bf 1px, rgba(0,0,0,0) 1px",
@@ -818,7 +824,8 @@ const SchemaEditor: React.FC<{
                   .map((other) => other.entitySchema.name);
 
                 // Inherited fields: look up parent's fields by name.
-                const parentEntityName = n.entitySchema.inheritedEntityName ?? null;
+                const parentEntityName =
+                  n.entitySchema.inheritedEntityName ?? null;
                 const inheritedFields: FieldSchema[] = parentEntityName
                   ? (entityFieldsMap.get(parentEntityName) ?? [])
                   : [];
@@ -875,7 +882,10 @@ const SchemaEditor: React.FC<{
                       e.preventDefault();
                       e.stopPropagation();
                       setContextMenuPos(
-                        getBoardPosFromWindowPos({ x: e.clientX, y: e.clientY }),
+                        getBoardPosFromWindowPos({
+                          x: e.clientX,
+                          y: e.clientY,
+                        }),
                       );
                       setContextMenuNodeId(n.id);
                       setContextSubmenuOpen(null);
@@ -883,24 +893,25 @@ const SchemaEditor: React.FC<{
                   />
                 );
               })}
-              {newEdge && (() => {
-                const newEdgeStartNode = nodes.find(
-                  (n) => n.id === newEdge.nodeStartId,
-                );
-                if (!newEdgeStartNode) return null;
-                return (
-                  <EditorEdge2
-                    selected={false}
-                    camera={camera}
-                    edge={newEdge}
-                    startNode={newEdgeStartNode}
-                    // endNode intentionally absent: cursor position is read
-                    // from edge.currentEndPosition inside EditorEdge2
-                    onClickDelete={() => {}}
-                    onMouseDownEdge={() => {}}
-                  />
-                );
-              })()}
+              {newEdge &&
+                (() => {
+                  const newEdgeStartNode = nodes.find(
+                    (n) => n.id === newEdge.nodeStartId,
+                  );
+                  if (!newEdgeStartNode) return null;
+                  return (
+                    <EditorEdge2
+                      selected={false}
+                      camera={camera}
+                      edge={newEdge}
+                      startNode={newEdgeStartNode}
+                      // endNode intentionally absent: cursor position is read
+                      // from edge.currentEndPosition inside EditorEdge2
+                      onClickDelete={() => {}}
+                      onMouseDownEdge={() => {}}
+                    />
+                  );
+                })()}
               {edges.map((edge: EdgeData, i) => {
                 const startNode = nodes.find((n) => n.id === edge.nodeStartId);
                 const endNode = nodes.find((n) => n.id === edge.nodeEndId);
@@ -931,100 +942,104 @@ const SchemaEditor: React.FC<{
                   style={{ cursor: "grabbing" }}
                 />
               )}
-              {contextMenuPos && (() => {
-                const ctxNode = contextMenuNodeId
-                  ? nodes.find((n) => n.id === contextMenuNodeId) ?? null
-                  : null;
-                const ctxHasParent = !!ctxNode?.entitySchema.inheritedEntityName;
-                // Other entity names (excluding the clicked node itself)
-                const otherEntityNames = nodes
-                  .filter((n) => n.id !== contextMenuNodeId)
-                  .map((n) => n.entitySchema.name);
+              {contextMenuPos &&
+                (() => {
+                  const ctxNode = contextMenuNodeId
+                    ? (nodes.find((n) => n.id === contextMenuNodeId) ?? null)
+                    : null;
+                  const ctxHasParent =
+                    !!ctxNode?.entitySchema.inheritedEntityName;
+                  // Other entity names (excluding the clicked node itself)
+                  const otherEntityNames = nodes
+                    .filter((n) => n.id !== contextMenuNodeId)
+                    .map((n) => n.entitySchema.name);
 
-                const menuItemClass =
-                  "relative px-3 py-1.5 text-left text-sm hover:bg-bg5 dark:hover:bg-bg5dark cursor-pointer select-none flex items-center justify-between gap-2 whitespace-nowrap";
+                  const menuItemClass =
+                    "relative px-3 py-1.5 text-left text-sm hover:bg-bg5 dark:hover:bg-bg5dark cursor-pointer select-none flex items-center justify-between gap-2 whitespace-nowrap";
 
-                return (
-                  <div
-                    style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
-                    className="absolute border rounded-md z-40 border-bg10 dark:border-bg8dark overflow-visible"
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    {ctxNode ? (
-                      /* ── Node context menu ─────────────────────────────── */
-                      <div className="flex flex-col bg-bg3 dark:bg-bg3dark min-w-[160px]">
-                        {ctxHasParent ? (
-                          /* Remove inheritance */
-                          <div
-                            className={menuItemClass}
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              handleSetInherits(ctxNode, null);
-                              setContextMenuPos(null);
-                              setContextMenuNodeId(null);
-                            }}
-                          >
-                            Remove inheritance
-                          </div>
-                        ) : (
-                          /* Add inheritance → submenu of other entity names */
-                          <div
-                            className={menuItemClass}
-                            onMouseEnter={() => setContextSubmenuOpen("addInheritance")}
-                            onMouseLeave={() => setContextSubmenuOpen(null)}
-                          >
-                            <span>Add inheritance</span>
-                            <svg
-                              viewBox="0 0 16 16"
-                              fill="currentColor"
-                              style={{ width: 10, height: 10, flexShrink: 0 }}
+                  return (
+                    <div
+                      style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
+                      className="absolute border rounded-md z-40 border-bg10 dark:border-bg8dark overflow-visible"
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      {ctxNode ? (
+                        /* ── Node context menu ─────────────────────────────── */
+                        <div className="flex flex-col bg-bg3 dark:bg-bg3dark min-w-[160px]">
+                          {ctxHasParent ? (
+                            /* Remove inheritance */
+                            <div
+                              className={menuItemClass}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                handleSetInherits(ctxNode, null);
+                                setContextMenuPos(null);
+                                setContextMenuNodeId(null);
+                              }}
                             >
-                              <path d="M6 3l5 5-5 5V3z" />
-                            </svg>
-                            {contextSubmenuOpen === "addInheritance" && (
-                              <div
-                                className="absolute left-full top-0 bg-bg3 dark:bg-bg3dark border border-bg10 dark:border-bg8dark z-50 min-w-[140px]"
-                                style={{ marginLeft: 2 }}
+                              Remove inheritance
+                            </div>
+                          ) : (
+                            /* Add inheritance → submenu of other entity names */
+                            <div
+                              className={menuItemClass}
+                              onMouseEnter={() =>
+                                setContextSubmenuOpen("addInheritance")
+                              }
+                              onMouseLeave={() => setContextSubmenuOpen(null)}
+                            >
+                              <span>Add inheritance</span>
+                              <svg
+                                viewBox="0 0 16 16"
+                                fill="currentColor"
+                                style={{ width: 10, height: 10, flexShrink: 0 }}
                               >
-                                {otherEntityNames.length === 0 ? (
-                                  <div className="px-3 py-1.5 text-sm text-zinc-400 select-none">
-                                    No other entities
-                                  </div>
-                                ) : (
-                                  otherEntityNames.map((name) => (
-                                    <div
-                                      key={name}
-                                      className="px-3 py-1.5 text-sm hover:bg-bg5 dark:hover:bg-bg5dark cursor-pointer select-none whitespace-nowrap"
-                                      onMouseDown={(e) => {
-                                        e.stopPropagation();
-                                        handleSetInherits(ctxNode, name);
-                                        setContextMenuPos(null);
-                                        setContextMenuNodeId(null);
-                                        setContextSubmenuOpen(null);
-                                      }}
-                                    >
-                                      {name}
+                                <path d="M6 3l5 5-5 5V3z" />
+                              </svg>
+                              {contextSubmenuOpen === "addInheritance" && (
+                                <div
+                                  className="absolute left-full top-0 bg-bg3 dark:bg-bg3dark border border-bg10 dark:border-bg8dark z-50 min-w-[140px]"
+                                  style={{ marginLeft: 2 }}
+                                >
+                                  {otherEntityNames.length === 0 ? (
+                                    <div className="px-3 py-1.5 text-sm text-zinc-400 select-none">
+                                      No other entities
                                     </div>
-                                  ))
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* ── Board context menu ────────────────────────────── */
-                      <BoardContextMenu
-                        onNewEntity={() => createNewEntity(contextMenuPos)}
-                        allEntityNames={nodes.map((n) => n.entitySchema.name)}
-                        onNewInheritedEntity={(parentName) =>
-                          createNewInheritedEntity(parentName)
-                        }
-                      />
-                    )}
-                  </div>
-                );
-              })()}
+                                  ) : (
+                                    otherEntityNames.map((name) => (
+                                      <div
+                                        key={name}
+                                        className="px-3 py-1.5 text-sm hover:bg-bg5 dark:hover:bg-bg5dark cursor-pointer select-none whitespace-nowrap"
+                                        onMouseDown={(e) => {
+                                          e.stopPropagation();
+                                          handleSetInherits(ctxNode, name);
+                                          setContextMenuPos(null);
+                                          setContextMenuNodeId(null);
+                                          setContextSubmenuOpen(null);
+                                        }}
+                                      >
+                                        {name}
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        /* ── Board context menu ────────────────────────────── */
+                        <BoardContextMenu
+                          onNewEntity={() => createNewEntity(contextMenuPos)}
+                          allEntityNames={nodes.map((n) => n.entitySchema.name)}
+                          onNewInheritedEntity={(parentName) =>
+                            createNewInheritedEntity(parentName)
+                          }
+                        />
+                      )}
+                    </div>
+                  );
+                })()}
             </div>
           </div>
         </div>

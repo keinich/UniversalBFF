@@ -54,5 +54,13 @@ namespace SchemaEditor {
       string schemaJson = SchemaEditor.LoadSchemaJson();
       webView.CoreWebView2.PostWebMessageAsString(schemaJson);
     }
+
+    private void toolStripButtonCodeToJson_Click(object sender, EventArgs e) {
+      SchemaEditor.GenerateCodeFromJson();
+    }
+
+    private void toolStripButtonCode2Json_Click(object sender, EventArgs e) {
+      SchemaEditor.GenerateJsonFromCode();
+    }
   }
 }

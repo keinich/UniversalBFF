@@ -12,7 +12,23 @@ import { QueryClient, QueryClientProvider } from "react-query";
 // App
 import "./App.css";
 import SchemaEditor from "./components/SchemaEditor";
+
 import { SchemaRoot } from "fusefx-modeldescription";
+
+// Helper to recursively lowercase only the first letter of all object keys
+function keysToLowerCase(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(keysToLowerCase);
+  } else if (obj && typeof obj === "object") {
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [
+        k.length > 0 ? k[0].toLowerCase() + k.slice(1) : k,
+        keysToLowerCase(v),
+      ]),
+    );
+  }
+  return obj;
+}
 
 const queryClient = new QueryClient();
 function App() {
@@ -21,14 +37,15 @@ function App() {
   if (webview) {
     webview.addEventListener("message", (event: any) => {
       console.log("Received message from host:", event.data);
-      const schema = JSON.parse(event.data);
-      console.log("Parsed schema:", schema);
+      let schema = JSON.parse(event.data);
+      schema = keysToLowerCase(schema);
+      console.log("Parsed schema (lowercase):", schema);
       // Handle the schema data
       setSr(schema);
     });
   }
   return (
-    <div className="h-screen w-full flex flex-col border-4 border-red-400 dark1">
+    <div className="h-screen w-full flex flex-col border-0 border-red-400 dark1">
       <SchemaEditor
         onChangeSchema={(s) => {
           const webview = (window as any).chrome?.webview;
