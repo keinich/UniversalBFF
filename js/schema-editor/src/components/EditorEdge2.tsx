@@ -89,6 +89,19 @@ const NODE_FIELD_HEIGHT = 30;
 /** Border width applied via Tailwind `border-2` on the node div */
 const NODE_BORDER = 2;
 
+/**
+ * After the field drag-and-drop refactor, each own-field row is wrapped in a
+ * `<div>` that carries a `borderTop: 2px solid transparent` (and matching
+ * borderBottom) as a DnD drop-indicator.  With CSS `box-sizing: border-box`
+ * the row height stays at wh, but the row's *padding edge* (the reference
+ * point for absolutely-positioned children like the connector dot) is 2 px
+ * inside the row's outer edge.  The connector dot uses `top: (1/3)*wh` which
+ * is measured from the padding edge, so the dot's outer-top is actually
+ * `ROW_WRAPPER_BORDER_TOP + (1/3)*wh`.  We must add this offset here so the
+ * computed edge start Y matches the rendered dot centre.
+ */
+const ROW_WRAPPER_BORDER_TOP = 2;
+
 // ─── Node dimension helpers ───────────────────────────────────────────────────
 
 /**
@@ -134,10 +147,13 @@ function calcNodeViewHeight(node: NodeData, wh: number): number {
  *   Then indices section header + index rows
  *
  *   Own field row handle Y:
- *     NODE_BORDER + wh * (fieldIndex + 1 + inheritanceRowCount) + wh / 2
+ *     NODE_BORDER + wh * (fieldIndex + 1 + inheritanceRowCount) + ROW_WRAPPER_BORDER_TOP + wh / 2
+ *     (ROW_WRAPPER_BORDER_TOP = 2 px, from the DnD row wrapper's transparent borderTop)
  *   Index row handle Y:
- *     NODE_BORDER + wh * (numFieldRows + indexIndex) + sepH + sepM + wh / 2
+ *     NODE_BORDER + wh * (numFieldRows + 1 + indexIndex) + sepH + sepM + wh / 2
  *   where numFieldRows = fields.length + 2 + inheritanceRowCount
+ *   The +1 accounts for the "Indices" section header row that sits between the
+ *   field rows and the first index row.
  */
 function calcHandleCenterY(
   node: NodeData,
@@ -154,7 +170,18 @@ function calcHandleCenterY(
   );
 
   if (fieldIdx >= 0) {
-    return nodeViewY + NODE_BORDER + wh * (fieldIdx + 1 + inheritanceRowCount) + wh / 2;
+    // ROW_WRAPPER_BORDER_TOP: the field row wrapper has `borderTop: 2px solid transparent`
+    // (for DnD drop indicators).  With border-box sizing the wrapper height stays wh,
+    // but the padding edge — where `top: (1/3)*wh` on the connector dot is anchored —
+    // sits 2 px inside the wrapper's outer edge.  Adding ROW_WRAPPER_BORDER_TOP corrects
+    // this offset so the edge line starts at the visual dot centre.
+    return (
+      nodeViewY +
+      NODE_BORDER +
+      wh * (fieldIdx + 1 + inheritanceRowCount) +
+      ROW_WRAPPER_BORDER_TOP +
+      wh / 2
+    );
   }
 
   // Check if fieldName belongs to an inherited field row.
@@ -178,7 +205,7 @@ function calcHandleCenterY(
   return (
     nodeViewY +
     NODE_BORDER +
-    wh * (numFieldRows + indexIdx) +
+    wh * (numFieldRows + 1 + indexIdx) +
     sepH +
     sepM +
     wh / 2
