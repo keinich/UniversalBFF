@@ -422,6 +422,43 @@ const SchemaEditor: React.FC<{
     );
     updateNodes([...nodes]);
   }
+
+  /**
+   * Reorder fields within a node by moving the field at fromIndex to toIndex.
+   * Mutates entitySchema.fields in-place (consistent with all other field
+   * mutations in this file) then spreads nodes to trigger a re-render.
+   * Also keeps child nodes' inheritedFieldNames in sync so edges stay correct.
+   */
+  function handleReorderFields(
+    nodeData: NodeData,
+    fromIndex: number,
+    toIndex: number,
+  ) {
+    const fields = nodeData.entitySchema.fields;
+    if (
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= fields.length ||
+      toIndex >= fields.length ||
+      fromIndex === toIndex
+    ) {
+      return;
+    }
+    // Remove the dragged item and splice it in at the target position.
+    const [moved] = fields.splice(fromIndex, 1);
+    fields.splice(toIndex, 0, moved);
+
+    // Keep inherited field metadata on child nodes in sync.
+    const parentName = nodeData.entitySchema.name;
+    nodes.forEach((n) => {
+      if (n.entitySchema.inheritedEntityName === parentName) {
+        n.inheritedFieldCount = fields.length;
+        n.inheritedFieldNames = fields.map((f) => f.name);
+      }
+    });
+
+    updateNodes([...nodes]);
+  }
   function handleCommitEntityName(nodeData: NodeData, entityName: string) {
     const oldName = nodeData.entitySchema.name;
     nodeData.entitySchema.name = entityName;
@@ -858,6 +895,7 @@ const SchemaEditor: React.FC<{
                     }
                     onDeleteField={(f) => handleDeleteField(n, f)}
                     onDeleteIndex={(i) => handleDeleteIndex(n, i)}
+                    onReorderFields={(from, to) => handleReorderFields(n, from, to)}
                     activeField={selectedField}
                     activeIndex={selectedIndex}
                     setActiveField={(f) => {

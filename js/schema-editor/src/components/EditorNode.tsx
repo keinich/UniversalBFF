@@ -57,6 +57,8 @@ const EditorNode: React.FC<{
   inheritedFields: FieldSchema[];
   /** Right-click handler forwarded from the parent canvas. */
   onContextMenu?: (e: React.MouseEvent) => void;
+  /** Callback fired when the user drag-reorders fields. fromIndex and toIndex are positions within entitySchema.fields. */
+  onReorderFields: (fromIndex: number, toIndex: number) => void;
 }> = React.memo(
   ({
     id,
@@ -89,6 +91,7 @@ const EditorNode: React.FC<{
     onSetInherits,
     inheritedFields,
     onContextMenu,
+    onReorderFields,
   }) => {
     const [entityName, setEntityName] = useState(nodeData.entitySchema.name);
     const [editingFieldName, setEditingFieldName] = useState<string | null>(null);
@@ -96,6 +99,13 @@ const EditorNode: React.FC<{
     const fieldInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
     const indexInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
     const pendingCharRef = useRef<string | null>(null);
+
+    // ── Drag-and-drop reordering state ──────────────────────────────────────
+    // dragSourceIndex: the fields[] index being dragged
+    // dragOverIndex:   the fields[] index currently being hovered (drop target)
+    const dragSourceIndexRef = useRef<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+    const [isDraggingField, setIsDraggingField] = useState(false);
 
     useEffect(() => {
       if (!editingFieldName) return;
@@ -184,6 +194,61 @@ const EditorNode: React.FC<{
         nodeData.entitySchema.indices[index + 1] = i;
         nodeData.entitySchema.indices[index] = temp;
       }
+    }
+
+    // ── Field drag-and-drop handlers ────────────────────────────────────────
+
+    /**
+     * Called on the drag handle's mousedown. Prevents the node-level onMouseDown
+     * from firing (which would start a node drag instead of a field reorder).
+     */
+    function handleDragHandleMouseDown(e: React.MouseEvent) {
+      e.stopPropagation();
+    }
+
+    function handleFieldDragStart(index: number, e: React.DragEvent) {
+      // Stop propagation so the canvas doesn't pick up a board-drag event.
+      e.stopPropagation();
+      dragSourceIndexRef.current = index;
+      setIsDraggingField(true);
+      // Minimal drag image so the default ghost doesn't obscure the list.
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(index));
+    }
+
+    function handleFieldDragOver(index: number, e: React.DragEvent) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "move";
+      setDragOverIndex(index);
+    }
+
+    function handleFieldDragLeave(e: React.DragEvent) {
+      e.stopPropagation();
+      // Only clear dragOverIndex when leaving the list entirely, not when
+      // crossing between child elements of the row.
+      if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+        setDragOverIndex(null);
+      }
+    }
+
+    function handleFieldDrop(toIndex: number, e: React.DragEvent) {
+      e.preventDefault();
+      e.stopPropagation();
+      const fromIndex = dragSourceIndexRef.current;
+      if (fromIndex !== null && fromIndex !== toIndex) {
+        onReorderFields(fromIndex, toIndex);
+      }
+      dragSourceIndexRef.current = null;
+      setDragOverIndex(null);
+      setIsDraggingField(false);
+    }
+
+    function handleFieldDragEnd(e: React.DragEvent) {
+      e.stopPropagation();
+      dragSourceIndexRef.current = null;
+      setDragOverIndex(null);
+      setIsDraggingField(false);
     }
 
     function handleMouseDownOutput(ref: any, e: any, fieldName: string) {
@@ -551,8 +616,75 @@ const EditorNode: React.FC<{
         {nodeData.entitySchema.fields.map((f: any, i: number) => {
           const inputRef: any = React.createRef();
           const outputRef: any = createRef();
+          const isDropTarget = dragOverIndex === i;
+          const isDragSource = isDraggingField && dragSourceIndexRef.current === i;
           return (
-            <React.Fragment key={f.name}>
+            // Draggable row wrapper — same height as a single field row so the
+            // connector-dot absolute-top math (calculated from the node origin)
+            // continues to be correct.
+            <div
+              key={f.name}
+              draggable
+              onDragStart={(e) => handleFieldDragStart(i, e)}
+              onDragOver={(e) => handleFieldDragOver(i, e)}
+              onDragLeave={handleFieldDragLeave}
+              onDrop={(e) => handleFieldDrop(i, e)}
+              onDragEnd={handleFieldDragEnd}
+              style={{
+                width: `${worldWidth - 4}px`,
+                height: `${worldHeightField}px`,
+                // Show a top border on the row that is being hovered over as a
+                // drop indicator. Bottom border on the last row when dragging
+                // below it is handled separately in the "New Field" input.
+                borderTop: isDropTarget && dragSourceIndexRef.current !== null && dragSourceIndexRef.current > i
+                  ? `2px solid #f97316`
+                  : "2px solid transparent",
+                borderBottom: isDropTarget && dragSourceIndexRef.current !== null && dragSourceIndexRef.current < i
+                  ? `2px solid #f97316`
+                  : "2px solid transparent",
+                // Dim the row being dragged so the user sees it is "lifted".
+                opacity: isDragSource ? 0.4 : 1,
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              {/* ── Drag handle — absolutely positioned over the left padding area,
+                  so it does not affect the input width or layout ─── */}
+              <div
+                onMouseDown={handleDragHandleMouseDown}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: worldHeightField * 0.55,
+                  height: worldHeightField,
+                  fontSize: worldHeightField / 2.8,
+                  cursor: "grab",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "transparent",
+                  zIndex: 1,
+                }}
+                className="field-drag-handle select-none"
+                title="Drag to reorder"
+              >
+                {/* Six-dot grip icon (two columns of three dots) */}
+                <svg
+                  viewBox="0 0 8 14"
+                  fill="currentColor"
+                  style={{ width: worldHeightField * 0.32, height: worldHeightField * 0.5 }}
+                >
+                  <circle cx="2" cy="2"  r="1.2" />
+                  <circle cx="6" cy="2"  r="1.2" />
+                  <circle cx="2" cy="7"  r="1.2" />
+                  <circle cx="6" cy="7"  r="1.2" />
+                  <circle cx="2" cy="12" r="1.2" />
+                  <circle cx="6" cy="12" r="1.2" />
+                </svg>
+              </div>
+
               <input
                 ref={(el) => { if (el) fieldInputRefs.current.set(f.name, el); }}
                 onMouseDown={(e: any) => {
@@ -581,11 +713,11 @@ const EditorNode: React.FC<{
                 }}
                 placeholder="New Field"
                 style={{
-                  width: `${worldWidth - 4 - 2 * worldHeightField * 0.15}px`,
+                  width: `${worldWidth - 4}px`,
                   height: `${worldHeightField}px`,
                   fontSize: worldHeightField / 2.5,
-                  marginLeft: worldHeightField * 0.15,
-                  marginRight: worldHeightField * 0.15,
+                  paddingLeft: worldHeightField * 0.25,
+                  flexShrink: 0,
                 }}
                 className={`text-center rounded-md border-0
                   ${editingFieldName === f.name
@@ -599,18 +731,20 @@ const EditorNode: React.FC<{
                           : "bg-bg6 dark:bg-bg6dark outline-none cursor-default select-none"
                   }`}
               ></input>
+
+              {/* Left (input) connector dot — absolutely positioned relative to
+                  this row div. top=(1/3)*rowHeight centres a (1/3)-tall dot. */}
               {(isDraggingEdge || true) && (
                 <div
                   style={{
-                    top:
-                      worldHeightField * (i + 1 + inheritanceRowCount) + (1 / 3) * worldHeightField,
+                    top: (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
                     left: `-${worldHeightField / 6}px`,
                     backgroundColor: `${nodeData.color}`,
                   }}
                   ref={inputRef}
-                  className="absolute  rounded-full
+                  className="absolute rounded-full
                     cursor-crosshair hover:bg-red-400 pointer-events-auto"
                   onMouseEnter={(e) =>
                     handleMouseEnterInput(inputRef, e, f.name)
@@ -621,11 +755,12 @@ const EditorNode: React.FC<{
                   }
                 ></div>
               )}
+
+              {/* Right (output) connector dot — absolutely positioned relative to this row div */}
               {((selected && activeField?.name === f.name) || true) && (
                 <div
                   style={{
-                    top:
-                      worldHeightField * (i + 1 + inheritanceRowCount) + (1 / 3) * worldHeightField,
+                    top: (1 / 3) * worldHeightField,
                     width: worldHeightField / 3,
                     height: worldHeightField / 3,
                     right: `-${worldHeightField / 6}px`,
@@ -643,42 +778,7 @@ const EditorNode: React.FC<{
                   }
                 ></div>
               )}
-              {((selected && activeField?.name === f.name) || true) && (
-                <>
-                  {/* <div
-                    style={{
-                      top:
-                        worldHeightField * (i + 1) + (1 / 3) * worldHeightField,
-                    }}
-                    ref={outputRef}
-                    className="absolute -right-7 rounded-l-full 
-                  cursor-pointer pointer-events-auto"
-                    onMouseDown={(e) => moveFieldDown(f)}
-                  >
-                    <ChevrodnDownIcon
-                      size={1.0}
-                      strokeWidth={6}
-                    ></ChevrodnDownIcon>
-                  </div>
-                  <div
-                    style={{
-                      top:
-                        worldHeightField * (i + 1) + (1 / 3) * worldHeightField,
-                    }}
-                    ref={outputRef}
-                    className="absolute -right-14 rounded-l-full 
-                      cursor-pointer pointer-events-auto"
-                    onMouseDown={(e) => moveFieldUp(f)}
-                  >
-                    <ChevrodnDownIcon
-                      size={1.0}
-                      strokeWidth={6}
-                      rotate={180}
-                    ></ChevrodnDownIcon>
-                  </div> */}
-                </>
-              )}
-            </React.Fragment>
+            </div>
           );
         })}
         <input

@@ -13,3 +13,12 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Show the drag handle grip icon only when the row is hovered or being dragged */
+div:hover > .field-drag-handle,
+div[draggable="true"]:active > .field-drag-handle {
+  color: #a1a1aa; /* zinc-400 */
+}
+div:hover > .field-drag-handle:hover {
+  color: #71717a; /* zinc-500 */
+}
