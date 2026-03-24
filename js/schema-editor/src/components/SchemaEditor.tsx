@@ -484,7 +484,21 @@ const SchemaEditor: React.FC<{
       }
     });
 
+    // Update any edges whose relation references the old entity name.
+    let edgesChanged = false;
+    edges.forEach((e) => {
+      if (e.relation.foreignEntityName === oldName) {
+        e.relation.foreignEntityName = entityName;
+        edgesChanged = true;
+      }
+      if (e.relation.primaryEntityName === oldName) {
+        e.relation.primaryEntityName = entityName;
+        edgesChanged = true;
+      }
+    });
+
     updateNodes([...nodes]);
+    if (edgesChanged) updateEdges([...edges]);
   }
 
   /**
@@ -1121,8 +1135,25 @@ const SchemaEditor: React.FC<{
             field={selectedField}
             relation={selectedEdge?.relation}
             index={selectedIndex}
-            onChange={() => {
-              updateNodes([...nodes]); // Force re-render
+            onChange={(oldEntityName?: string) => {
+              if (oldEntityName !== undefined) {
+                const newName = nodes.find((n) => n.id === selectedNode)?.entitySchema.name;
+                if (newName && oldEntityName !== newName) {
+                  let edgesChanged = false;
+                  edges.forEach((e) => {
+                    if (e.relation.foreignEntityName === oldEntityName) {
+                      e.relation.foreignEntityName = newName;
+                      edgesChanged = true;
+                    }
+                    if (e.relation.primaryEntityName === oldEntityName) {
+                      e.relation.primaryEntityName = newName;
+                      edgesChanged = true;
+                    }
+                  });
+                  if (edgesChanged) updateEdges([...edges]);
+                }
+              }
+              updateNodes([...nodes]);
             }}
           ></EditorProperties>
         </div>

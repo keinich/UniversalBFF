@@ -79,7 +79,7 @@ const TabButton: React.FC<{
 const DataTab: React.FC<{
   entity: EntitySchema;
   forceUpdate: () => void;
-  onChange: () => void;
+  onChange: (oldEntityName?: string) => void;
 }> = ({ entity, forceUpdate, onChange }) => {
   const mutate = (fn: () => void) => {
     fn();
@@ -106,11 +106,12 @@ const DataTab: React.FC<{
             type="text"
             className={INPUT_CLS}
             value={entity.name ?? ""}
-            onChange={(e) =>
-              mutate(() => {
-                entity.name = e.target.value;
-              })
-            }
+            onChange={(e) => {
+              const oldName = entity.name;
+              entity.name = e.target.value;
+              forceUpdate();
+              onChange(oldName);
+            }}
           />
         </FormField>
         <FormField label="Plural Name">
@@ -264,7 +265,7 @@ const EditorProperties: React.FC<{
   field: FieldSchema | null;
   relation: RelationSchema | undefined;
   index: IndexSchema | null;
-  onChange: () => void;
+  onChange: (oldEntityName?: string) => void;
 }> = ({ nodeData, relation, field, index, onChange }) => {
   const [activeTab, setActiveTab] = useState<"data" | "designer">("data");
   // Lightweight forceUpdate so mutations to the object reference re-render this panel.
