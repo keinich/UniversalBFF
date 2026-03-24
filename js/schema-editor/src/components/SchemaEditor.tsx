@@ -369,6 +369,20 @@ const SchemaEditor: React.FC<{
       existingF.name = value;
     } else {
       nodeData.entitySchema.fields.push(fieldSchema);
+
+      // Auto-create a "PK" index when the first field named "Id" or "Uid"
+      // (case-insensitive) is added and no primary key index is set yet.
+      const nameLower = fieldSchema.name.toLowerCase();
+      const isPkCandidate = nameLower === "id" || nameLower === "uid";
+      const hasPrimaryKey = !!nodeData.entitySchema.primaryKeyIndexName;
+      if (isPkCandidate && !hasPrimaryKey) {
+        const pkIndex = new IndexSchema();
+        pkIndex.name = "PK";
+        pkIndex.unique = true;
+        pkIndex.memberFieldNames = [fieldSchema.name];
+        nodeData.entitySchema.indices.push(pkIndex);
+        nodeData.entitySchema.primaryKeyIndexName = "PK";
+      }
     }
     // Update inheritedFieldCount/inheritedFieldNames on any child nodes that
     // inherit from this entity, so their height and EditorEdge2 geometry stay correct.
