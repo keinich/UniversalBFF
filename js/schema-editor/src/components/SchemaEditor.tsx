@@ -1032,26 +1032,35 @@ const SchemaEditor: React.FC<{
                               Remove inheritance
                             </div>
                           ) : (
-                            /* Add inheritance → submenu of other entity names */
+                            /*
+                             * Add inheritance → submenu of other entity names.
+                             * The onMouseEnter/onMouseLeave live on the outer
+                             * wrapper div so they cover both the trigger row and
+                             * the absolutely-positioned submenu panel.  Putting
+                             * them only on the inner row caused onMouseLeave to
+                             * fire as soon as the cursor moved onto the submenu,
+                             * closing it before the user could click.
+                             */
                             <div
-                              className={menuItemClass}
+                              className="relative"
                               onMouseEnter={() =>
                                 setContextSubmenuOpen("addInheritance")
                               }
                               onMouseLeave={() => setContextSubmenuOpen(null)}
                             >
-                              <span>Add inheritance</span>
-                              <svg
-                                viewBox="0 0 16 16"
-                                fill="currentColor"
-                                style={{ width: 10, height: 10, flexShrink: 0 }}
-                              >
-                                <path d="M6 3l5 5-5 5V3z" />
-                              </svg>
+                              <div className={menuItemClass}>
+                                <span>Add inheritance</span>
+                                <svg
+                                  viewBox="0 0 16 16"
+                                  fill="currentColor"
+                                  style={{ width: 10, height: 10, flexShrink: 0 }}
+                                >
+                                  <path d="M6 3l5 5-5 5V3z" />
+                                </svg>
+                              </div>
                               {contextSubmenuOpen === "addInheritance" && (
                                 <div
                                   className="absolute left-full top-0 bg-bg3 dark:bg-bg3dark border border-bg10 dark:border-bg8dark z-50 min-w-[140px]"
-                                  style={{ marginLeft: 2 }}
                                 >
                                   {otherEntityNames.length === 0 ? (
                                     <div className="px-3 py-1.5 text-sm text-zinc-400 select-none">

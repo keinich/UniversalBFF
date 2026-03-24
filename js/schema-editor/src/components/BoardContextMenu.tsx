@@ -38,26 +38,34 @@ const BoardContextMenu: React.FC<{
 
       {/* Create inherited entity — shows submenu on hover */}
       {allEntityNames.length > 0 && (
+        /*
+         * The onMouseEnter/onMouseLeave are placed on this outer wrapper so
+         * that they span both the trigger row and the absolutely-positioned
+         * submenu panel.  If the handlers were on the inner row div only, the
+         * mouse leaving the row area toward the submenu would fire onMouseLeave
+         * and close the submenu before the user could click an item.
+         */
         <div
-          className={menuItemClass}
+          className="relative"
           onMouseEnter={() => setSubmenuOpen(true)}
           onMouseLeave={() => setSubmenuOpen(false)}
         >
-          <span>Create inherited entity</span>
-          {/* Right-arrow indicator */}
-          <svg
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            style={{ width: 10, height: 10, flexShrink: 0 }}
-          >
-            <path d="M6 3l5 5-5 5V3z" />
-          </svg>
+          <div className={menuItemClass}>
+            <span>Create inherited entity</span>
+            {/* Right-arrow indicator */}
+            <svg
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              style={{ width: 10, height: 10, flexShrink: 0 }}
+            >
+              <path d="M6 3l5 5-5 5V3z" />
+            </svg>
+          </div>
 
           {/* Submenu — absolutely positioned to the right */}
           {submenuOpen && (
             <div
               className="absolute left-full top-0 bg-bg3 dark:bg-bg3dark border border-bg10 dark:border-bg8dark z-50 min-w-[140px]"
-              style={{ marginLeft: 2 }}
             >
               {allEntityNames.map((name) => (
                 <div
