@@ -4,6 +4,7 @@ import {
   RelationSchema,
   FieldSchema,
   IndexSchema,
+  SchemaRoot,
 } from "fusefx-modeldescription";
 import RelationForm from "./RelationForm";
 import FieldForm from "./FieldForm";
@@ -258,15 +259,99 @@ const DesignerTab: React.FC<{
   );
 };
 
+// ─── SchemaRootForm ───────────────────────────────────────────────────────────
+
+const SchemaRootForm: React.FC<{
+  schema: SchemaRoot;
+  onChange: () => void;
+}> = ({ schema, onChange }) => {
+  const [_, setLocal] = useState(0);
+  const forceUpdate = () => setLocal((n) => n + 1);
+  const mutate = (fn: () => void) => {
+    fn();
+    forceUpdate();
+    onChange();
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-3 pt-3 pb-2">
+        <span className="text-base font-semibold text-textone dark:text-textonedark">
+          Schema
+        </span>
+      </div>
+      <div className="flex-1 overflow-auto px-3 py-3">
+        <div className="flex flex-col">
+          <SectionHeader label="Identity" first />
+          <div className="flex flex-col gap-2">
+            <FormField label="Description Format">
+              <input
+                type="text"
+                className={INPUT_CLS}
+                value={schema.descriptionFormat ?? ""}
+                onChange={(e) =>
+                  mutate(() => {
+                    schema.descriptionFormat = e.target.value;
+                  })
+                }
+              />
+            </FormField>
+            <FormField label="Semantic Version">
+              <input
+                type="text"
+                className={INPUT_CLS}
+                value={schema.semanticVersion ?? ""}
+                onChange={(e) =>
+                  mutate(() => {
+                    schema.semanticVersion = e.target.value;
+                  })
+                }
+              />
+            </FormField>
+          </div>
+          <SectionHeader label="Metadata" />
+          <div className="flex flex-col gap-2">
+            <FormField label="Timestamp (UTC)">
+              <input
+                type="text"
+                className={INPUT_CLS + " opacity-60 cursor-not-allowed"}
+                value={schema.timestampUtc ?? ""}
+                readOnly
+              />
+            </FormField>
+            <FormField label="Entities">
+              <input
+                type="text"
+                className={INPUT_CLS + " opacity-60 cursor-not-allowed"}
+                value={`${schema.entities?.length ?? 0} entities`}
+                readOnly
+              />
+            </FormField>
+            <FormField label="Relations">
+              <input
+                type="text"
+                className={INPUT_CLS + " opacity-60 cursor-not-allowed"}
+                value={`${schema.relations?.length ?? 0} relations`}
+                readOnly
+              />
+            </FormField>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── EditorProperties ─────────────────────────────────────────────────────────
 
 const EditorProperties: React.FC<{
+  schema: SchemaRoot;
   nodeData: NodeData | undefined;
   field: FieldSchema | null;
   relation: RelationSchema | undefined;
   index: IndexSchema | null;
   onChange: (oldEntityName?: string) => void;
-}> = ({ nodeData, relation, field, index, onChange }) => {
+}> = ({ schema, nodeData, relation, field, index, onChange }) => {
   const [activeTab, setActiveTab] = useState<"data" | "designer">("data");
   // Lightweight forceUpdate so mutations to the object reference re-render this panel.
   const [_, setLocal] = useState(0);
@@ -284,9 +369,13 @@ const EditorProperties: React.FC<{
 
   const entity = nodeData?.entitySchema;
   const showEntityTabs = entity && !field && !relation && !index;
+  const showSchemaRoot = !nodeData && !field && !relation && !index;
 
   return (
     <div className="flex flex-col gap-1 h-full">
+      {showSchemaRoot && (
+        <SchemaRootForm schema={schema} onChange={() => onChange()} />
+      )}
       {showEntityTabs && (
         <div className="flex flex-col h-full">
           {/* Prominent entity name header */}

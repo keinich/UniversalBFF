@@ -57,6 +57,7 @@ const SchemaEditor: React.FC<{
 
   const [showProperties, setShowProperties] = useState(true);
 
+  const [activeSchema, setActiveSchema] = useState<SchemaRoot>(() => schema ?? new SchemaRoot());
   const [currentId, setCurrentId] = useState(1);
   const [grabbingBoard, setGrabbingBoard] = useState(false);
   const [isDraggingNode, setIsDraggingNode] = useState(false);
@@ -120,6 +121,7 @@ const SchemaEditor: React.FC<{
       : loadFromLocalStore();
     console.log("Loaded board state:", boardState);
 
+    if (schema) setActiveSchema(schema);
     setNodes(boardState.nodes);
     setEdges(boardState.edges);
     let maxId: number = 0;
@@ -586,6 +588,12 @@ const SchemaEditor: React.FC<{
       setClickedPosition({ x: e.clientX, y: e.clientY });
       setContextMenuPos(null);
       setGrabbingBoard(true);
+      setSelectedNode(null);
+      setSelectedEdge(null);
+      setSelectedField(null);
+      setSelectedIndex(null);
+      setHighlightedFields(new Map());
+      setHighlightedEdges(new Set());
     }
     if (e.button == 2) {
       setContextMenuPos(
@@ -1131,6 +1139,7 @@ const SchemaEditor: React.FC<{
             ></div>
           )}
           <EditorProperties
+            schema={activeSchema}
             nodeData={nodes.find((n) => n.id == selectedNode)}
             field={selectedField}
             relation={selectedEdge?.relation}
