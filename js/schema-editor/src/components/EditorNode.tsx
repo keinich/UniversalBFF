@@ -12,6 +12,67 @@ import EditorNodeField from "./EditorNodeField";
 import ChevrodnDownIcon from "ushell-common-components/dist/cjs/_Icons/ChevrodnDownIcon";
 import { EdgeData } from "../bl/EdgeData";
 
+function getFieldTypeIcon(type: string, size: number) {
+  const s = size * 0.55;
+  const style: React.CSSProperties = { width: s, height: s, flexShrink: 0 };
+  switch (type) {
+    case "Date":
+      return (
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.1" style={style}>
+          <rect x="1" y="2" width="10" height="9" rx="1" />
+          <line x1="4" y1="1" x2="4" y2="3.2" />
+          <line x1="8" y1="1" x2="8" y2="3.2" />
+          <line x1="1" y1="5" x2="11" y2="5" />
+          <circle cx="3.5" cy="8" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="6" cy="8" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="8.5" cy="8" r="0.9" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "Int32":
+    case "Int64":
+      return (
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" style={style}>
+          <line x1="4.5" y1="1" x2="3.5" y2="11" />
+          <line x1="8.5" y1="1" x2="7.5" y2="11" />
+          <line x1="2" y1="4.5" x2="10" y2="4.5" />
+          <line x1="1.5" y1="7.5" x2="9.5" y2="7.5" />
+        </svg>
+      );
+    case "Decimal":
+      return (
+        <svg viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.2" style={style}>
+          <line x1="1" y1="11" x2="5" y2="1" />
+          <circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none" />
+          <circle cx="12.5" cy="10.5" r="1" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "Boolean":
+      return (
+        <svg viewBox="0 0 16 10" fill="none" stroke="currentColor" strokeWidth="1.2" style={style}>
+          <rect x="0.5" y="0.5" width="15" height="9" rx="4.5" />
+          <circle cx="11.5" cy="5" r="3" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "Guid":
+      return (
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.1" style={style}>
+          <circle cx="6" cy="5" r="3" />
+          <path d="M2 11 C2 8 10 8 10 11" />
+          <line x1="8.5" y1="3" x2="11" y2="1" />
+          <line x1="9.5" y1="4.5" x2="12" y2="4.5" />
+        </svg>
+      );
+    case "String":
+    default:
+      return (
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" style={style}>
+          <line x1="1" y1="4" x2="11" y2="4" />
+          <line x1="1" y1="7.5" x2="7.5" y2="7.5" />
+        </svg>
+      );
+  }
+}
+
 const EditorNode: React.FC<{
   id: number;
   nodeData: NodeData;
@@ -716,10 +777,11 @@ const EditorNode: React.FC<{
                   width: `${worldWidth - 4}px`,
                   height: `${worldHeightField}px`,
                   fontSize: worldHeightField / 2.5,
-                  paddingLeft: worldHeightField * 0.25,
+                  paddingLeft: worldHeightField * 0.4,
+                  paddingRight: worldHeightField * 1.05,
                   flexShrink: 0,
                 }}
-                className={`text-center rounded-md border-0
+                className={`text-left rounded-md border-0
                   ${editingFieldName === f.name
                     ? "outline outline-1 outline-blue-400 bg-white dark:bg-zinc-800 cursor-text"
                     : highlightedFields.has(f.name)
@@ -731,6 +793,25 @@ const EditorNode: React.FC<{
                           : "bg-bg6 dark:bg-bg6dark outline-none cursor-default select-none"
                   }`}
               ></input>
+
+              {/* Type icon — absolutely positioned at the right of the row */}
+              {f.type && (
+                <div
+                  style={{
+                    position: "absolute",
+                    right: worldHeightField * 0.3,
+                    top: 0,
+                    height: worldHeightField,
+                    display: "flex",
+                    alignItems: "center",
+                    pointerEvents: "none",
+                    opacity: 0.45,
+                    color: "currentColor",
+                  }}
+                >
+                  {getFieldTypeIcon(f.type, worldHeightField)}
+                </div>
+              )}
 
               {/* Left (input) connector dot — absolutely positioned relative to
                   this row div. top=(1/3)*rowHeight centres a (1/3)-tall dot. */}
