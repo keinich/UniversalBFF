@@ -61,11 +61,28 @@ namespace SchemaEditor {
         throw new Exception($"GeneratedEntities.cs not found at {entitiesFilePath}");
 
       SchemaRoot schemaRoot = ParseEntitiesCode(File.ReadAllText(entitiesFilePath));
-      var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+      var jsonOptions = new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-      //SchemaRoot oldSchemaRoot = LoadSchema();
-      
+      SchemaRoot oldSchemaRoot = LoadSchema();
+      DesignerData designerData = new DesignerData();
 
+      var jsonOptions2 = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+      DesignerData? oldDesignerData = JsonSerializer.Deserialize<DesignerData>(oldSchemaRoot.DesignerData, jsonOptions2);
+      if (oldDesignerData != null) {
+        foreach (NodeData oldNode in oldDesignerData.Nodes) {
+          EntitySchema? foundEntitySchemaNew = schemaRoot.Entities.FirstOrDefault(e => e.Name == oldNode.EntitySchema.Name);
+          if (foundEntitySchemaNew == null) continue;
+          oldNode.EntitySchema = foundEntitySchemaNew;
+          designerData.Nodes = designerData.Nodes.Append(oldNode).ToArray();
+        }
+        foreach (EdgeData oldEdge in oldDesignerData.Edges) {
+          RelationSchema? foundRelationSchemaNew = schemaRoot.Relations.FirstOrDefault(r => r.Name == oldEdge.Relation.Name);
+          if (foundRelationSchemaNew == null) continue;
+          oldEdge.Relation = foundRelationSchemaNew;
+          designerData.Edges = designerData.Edges.Append(oldEdge).ToArray();
+        }
+      }
+      schemaRoot.DesignerData = JsonSerializer.Serialize(designerData, jsonOptions);
       File.WriteAllText(SchemaJsonFilePath, JsonSerializer.Serialize(schemaRoot, jsonOptions));
     }
 
@@ -93,20 +110,19 @@ namespace SchemaEditor {
           // Entity-level doc summary
           if (line == "/// <summary>") { entitySummaryLines.Clear(); inEntitySummary = true; continue; }
           if (inEntitySummary) {
-            if (line == "/// </summary>") { inEntitySummary = false; pendingEntitySummary = string.Join(" ", entitySummaryLines); }
-            else entitySummaryLines.Add(line.TrimStart('/', ' ').Trim());
+            if (line == "/// </summary>") { inEntitySummary = false; pendingEntitySummary = string.Join(" ", entitySummaryLines); } else entitySummaryLines.Add(line.TrimStart('/', ' ').Trim());
             continue;
           }
 
           // HasLookup
-          var m = Regex.Match(line, @"^\[HasLookup\(""([^""]+)"",\s*""([^""]*)"",\s*""([^""]*)"",\s*(?:null|""[^""]*""),\s*""([^""]+)""\)\]$");
+          var m = Regex.Match(line, @"^\[HasLookup\(""([^""]*)"",\s*""([^""]*)"",\s*""([^""]*)"",\s*(?:null|""[^""]*""),\s*""([^""]+)""\)\]$");
           if (m.Success) {
             pendingRelations.Add(new RelationSchema { Name = m.Groups[1].Value, ForeignKeyIndexName = m.Groups[2].Value, PrimaryNavigationName = m.Groups[3].Value, PrimaryEntityName = m.Groups[4].Value, IsLookupRelation = true });
             continue;
           }
 
           // HasPrincipal
-          m = Regex.Match(line, @"^\[HasPrincipal\(""([^""]+)"",\s*""([^""]*)"",\s*""([^""]*)"",\s*(?:null|""[^""]*""),\s*""([^""]+)""\)\]$");
+          m = Regex.Match(line, @"^\[HasPrincipal\(""([^""]*)"",\s*""([^""]*)"",\s*""([^""]*)"",\s*(?:null|""[^""]*""),\s*""([^""]+)""\)\]$");
           if (m.Success) {
             pendingRelations.Add(new RelationSchema { Name = m.Groups[1].Value, ForeignKeyIndexName = m.Groups[2].Value, PrimaryNavigationName = m.Groups[3].Value, PrimaryEntityName = m.Groups[4].Value, IsLookupRelation = false });
             continue;
