@@ -168,6 +168,22 @@ const EditorNode: React.FC<{
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
     const [isDraggingField, setIsDraggingField] = useState(false);
 
+    // Fields to bold: the selected index's members (if that index belongs to
+    // this node), otherwise the primary key index's members as a default.
+    const indexMemberFields = React.useMemo(() => {
+      if (activeIndex) {
+        const belongsHere = nodeData.entitySchema.indices.some(
+          (idx: IndexSchema) => idx.name === activeIndex.name
+        );
+        if (belongsHere) return new Set<string>(activeIndex.memberFieldNames);
+      }
+      // Fall back to PK index fields
+      const pkIndex = nodeData.entitySchema.indices.find(
+        (idx: IndexSchema) => idx.name === nodeData.entitySchema.primaryKeyIndexName
+      );
+      return pkIndex ? new Set<string>(pkIndex.memberFieldNames) : new Set<string>();
+    }, [activeIndex, nodeData.entitySchema.indices, nodeData.entitySchema.primaryKeyIndexName]);
+
     useEffect(() => {
       if (!editingFieldName) return;
       const input = fieldInputRefs.current.get(editingFieldName);
@@ -788,9 +804,11 @@ const EditorNode: React.FC<{
                       ? "bg-blue-200 dark:bg-blue-800 outline-none cursor-default select-none"
                       : selected && activeField?.name === f.name
                         ? "bg-blue-100 dark:bg-blue-700 outline-none cursor-default select-none"
-                        : nodeData.color
-                          ? "outline-none cursor-default select-none hover:bg-bg5 dark:hover:bg-bg5dark"
-                          : "bg-bg6 dark:bg-bg6dark outline-none cursor-default select-none"
+                        : indexMemberFields.has(f.name)
+                          ? "font-bold outline-none cursor-default select-none"
+                          : nodeData.color
+                            ? "outline-none cursor-default select-none hover:bg-bg5 dark:hover:bg-bg5dark"
+                            : "bg-bg6 dark:bg-bg6dark outline-none cursor-default select-none"
                   }`}
               ></input>
 
