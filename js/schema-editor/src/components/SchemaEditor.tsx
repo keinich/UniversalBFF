@@ -57,7 +57,9 @@ const SchemaEditor: React.FC<{
 
   const [showProperties, setShowProperties] = useState(true);
 
-  const [activeSchema, setActiveSchema] = useState<SchemaRoot>(() => schema ?? new SchemaRoot());
+  const [activeSchema, setActiveSchema] = useState<SchemaRoot>(
+    () => schema ?? new SchemaRoot(),
+  );
   const [currentId, setCurrentId] = useState(1);
   const [grabbingBoard, setGrabbingBoard] = useState(false);
   const [isDraggingNode, setIsDraggingNode] = useState(false);
@@ -847,7 +849,7 @@ const SchemaEditor: React.FC<{
   return (
     <div
       className="flex flex-col w-full h-full overflow-hidden border-0 border-green-400
-     bg-content dark:bg-contentDark text-textone dark:text-textonedark"
+     bg-menu dark:bg-bg11dark text-textone dark:text-textonedark"
     >
       <EditorToolbar
         showProperties={showProperties}
@@ -931,7 +933,9 @@ const SchemaEditor: React.FC<{
                     }
                     onDeleteField={(f) => handleDeleteField(n, f)}
                     onDeleteIndex={(i) => handleDeleteIndex(n, i)}
-                    onReorderFields={(from, to) => handleReorderFields(n, from, to)}
+                    onReorderFields={(from, to) =>
+                      handleReorderFields(n, from, to)
+                    }
                     activeField={selectedField}
                     activeIndex={selectedIndex}
                     setActiveField={(f) => {
@@ -1075,15 +1079,17 @@ const SchemaEditor: React.FC<{
                                 <svg
                                   viewBox="0 0 16 16"
                                   fill="currentColor"
-                                  style={{ width: 10, height: 10, flexShrink: 0 }}
+                                  style={{
+                                    width: 10,
+                                    height: 10,
+                                    flexShrink: 0,
+                                  }}
                                 >
                                   <path d="M6 3l5 5-5 5V3z" />
                                 </svg>
                               </div>
                               {contextSubmenuOpen === "addInheritance" && (
-                                <div
-                                  className="absolute left-full top-0 bg-bg3 dark:bg-bg3dark border border-bg10 dark:border-bg8dark z-50 min-w-[140px]"
-                                >
+                                <div className="absolute left-full top-0 bg-bg3 dark:bg-bg3dark border border-bg10 dark:border-bg8dark z-50 min-w-[140px]">
                                   {otherEntityNames.length === 0 ? (
                                     <div className="px-3 py-1.5 text-sm text-zinc-400 select-none">
                                       No other entities
@@ -1146,7 +1152,8 @@ const SchemaEditor: React.FC<{
             index={selectedIndex}
             onChange={(oldEntityName?: string) => {
               if (oldEntityName !== undefined) {
-                const newName = nodes.find((n) => n.id === selectedNode)?.entitySchema.name;
+                const newName = nodes.find((n) => n.id === selectedNode)
+                  ?.entitySchema.name;
                 if (newName && oldEntityName !== newName) {
                   let edgesChanged = false;
                   edges.forEach((e) => {

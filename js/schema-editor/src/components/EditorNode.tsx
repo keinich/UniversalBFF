@@ -18,7 +18,13 @@ function getFieldTypeIcon(type: string, size: number) {
   switch (type) {
     case "Date":
       return (
-        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.1" style={style}>
+        <svg
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.1"
+          style={style}
+        >
           <rect x="1" y="2" width="10" height="9" rx="1" />
           <line x1="4" y1="1" x2="4" y2="3.2" />
           <line x1="8" y1="1" x2="8" y2="3.2" />
@@ -31,7 +37,13 @@ function getFieldTypeIcon(type: string, size: number) {
     case "Int32":
     case "Int64":
       return (
-        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" style={style}>
+        <svg
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          style={style}
+        >
           <line x1="4.5" y1="1" x2="3.5" y2="11" />
           <line x1="8.5" y1="1" x2="7.5" y2="11" />
           <line x1="2" y1="4.5" x2="10" y2="4.5" />
@@ -40,7 +52,13 @@ function getFieldTypeIcon(type: string, size: number) {
       );
     case "Decimal":
       return (
-        <svg viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.2" style={style}>
+        <svg
+          viewBox="0 0 14 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          style={style}
+        >
           <line x1="1" y1="11" x2="5" y2="1" />
           <circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none" />
           <circle cx="12.5" cy="10.5" r="1" fill="currentColor" stroke="none" />
@@ -48,14 +66,26 @@ function getFieldTypeIcon(type: string, size: number) {
       );
     case "Boolean":
       return (
-        <svg viewBox="0 0 16 10" fill="none" stroke="currentColor" strokeWidth="1.2" style={style}>
+        <svg
+          viewBox="0 0 16 10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          style={style}
+        >
           <rect x="0.5" y="0.5" width="15" height="9" rx="4.5" />
           <circle cx="11.5" cy="5" r="3" fill="currentColor" stroke="none" />
         </svg>
       );
     case "Guid":
       return (
-        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.1" style={style}>
+        <svg
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.1"
+          style={style}
+        >
           <circle cx="6" cy="5" r="3" />
           <path d="M2 11 C2 8 10 8 10 11" />
           <line x1="8.5" y1="3" x2="11" y2="1" />
@@ -65,7 +95,14 @@ function getFieldTypeIcon(type: string, size: number) {
     case "String":
     default:
       return (
-        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" style={style}>
+        <svg
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          style={style}
+        >
           <line x1="1" y1="4" x2="11" y2="4" />
           <line x1="1" y1="7.5" x2="7.5" y2="7.5" />
         </svg>
@@ -155,8 +192,12 @@ const EditorNode: React.FC<{
     onReorderFields,
   }) => {
     const [entityName, setEntityName] = useState(nodeData.entitySchema.name);
-    const [editingFieldName, setEditingFieldName] = useState<string | null>(null);
-    const [editingIndexName, setEditingIndexName] = useState<string | null>(null);
+    const [editingFieldName, setEditingFieldName] = useState<string | null>(
+      null,
+    );
+    const [editingIndexName, setEditingIndexName] = useState<string | null>(
+      null,
+    );
     const fieldInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
     const indexInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
     const pendingCharRef = useRef<string | null>(null);
@@ -173,16 +214,23 @@ const EditorNode: React.FC<{
     const indexMemberFields = React.useMemo(() => {
       if (activeIndex) {
         const belongsHere = nodeData.entitySchema.indices.some(
-          (idx: IndexSchema) => idx.name === activeIndex.name
+          (idx: IndexSchema) => idx.name === activeIndex.name,
         );
         if (belongsHere) return new Set<string>(activeIndex.memberFieldNames);
       }
       // Fall back to PK index fields
       const pkIndex = nodeData.entitySchema.indices.find(
-        (idx: IndexSchema) => idx.name === nodeData.entitySchema.primaryKeyIndexName
+        (idx: IndexSchema) =>
+          idx.name === nodeData.entitySchema.primaryKeyIndexName,
       );
-      return pkIndex ? new Set<string>(pkIndex.memberFieldNames) : new Set<string>();
-    }, [activeIndex, nodeData.entitySchema.indices, nodeData.entitySchema.primaryKeyIndexName]);
+      return pkIndex
+        ? new Set<string>(pkIndex.memberFieldNames)
+        : new Set<string>();
+    }, [
+      activeIndex,
+      nodeData.entitySchema.indices,
+      nodeData.entitySchema.primaryKeyIndexName,
+    ]);
 
     useEffect(() => {
       if (!editingFieldName) return;
@@ -393,8 +441,13 @@ const EditorNode: React.FC<{
         if (e.key === "Enter" || e.key === "Tab") {
           e.preventDefault();
           handleCommitField(null, e.target.value);
-          const el = document.getElementById(nodeData.entitySchema.name + "_new") as HTMLInputElement;
-          if (el) { el.value = ""; el.focus(); }
+          const el = document.getElementById(
+            nodeData.entitySchema.name + "_new",
+          ) as HTMLInputElement;
+          if (el) {
+            el.value = "";
+            el.focus();
+          }
         }
         return;
       }
@@ -435,8 +488,13 @@ const EditorNode: React.FC<{
         // "New Index" input — always editable
         if (e.key === "Enter") {
           handleCommitIndex(null, e.target.value);
-          const el = document.getElementById(nodeData.entitySchema.name + "_newIndex") as HTMLInputElement;
-          if (el) { el.value = ""; el.focus(); }
+          const el = document.getElementById(
+            nodeData.entitySchema.name + "_newIndex",
+          ) as HTMLInputElement;
+          if (el) {
+            el.value = "";
+            el.focus();
+          }
         }
         return;
       }
@@ -496,7 +554,8 @@ const EditorNode: React.FC<{
 
     // Inheritance rows only exist when a parent is set: 1 header row + N inherited field rows
     const inheritanceRowCount = hasParent ? 1 + inheritedFields.length : 0;
-    const numFields = nodeData.entitySchema.fields.length + 2 + inheritanceRowCount; // entity name + inheritance row(s) + own fields + new field input
+    const numFields =
+      nodeData.entitySchema.fields.length + 2 + inheritanceRowCount; // entity name + inheritance row(s) + own fields + new field input
     const numIndices = nodeData.entitySchema.indices.length + 2; // +1 for "Indices" header row, +1 for new index input
     const height =
       worldHeightField * (numFields + numIndices) +
@@ -532,7 +591,7 @@ const EditorNode: React.FC<{
           bg-content dark:bg-contentDark
         shadow-md hover:shadow-2xl ${
           nodeData.color ? "" : "bg-bg6 dark:bg-bg6dark"
-        } ${selected ? "border-orange-400 " : "border-transparent"}`}
+        } ${selected ? "border-orange-400 " : "border-menuBorder dark:border-menuDark"}`}
       >
         <div
           id="test123"
@@ -559,7 +618,7 @@ const EditorNode: React.FC<{
             borderBottomWidth: `${worldHeightField * 0.01}px`,
           }}
           className={` text-center border-0 
-          cursor-grab outline-none rounded-t-sm flex align-middle justify-center`}
+          cursor-grab outline-none rounded-t-sm flex align-middle justify-center border-gray-600 dark:border-gray-400`}
         >
           <input
             value={entityName}
@@ -627,74 +686,86 @@ const EditorNode: React.FC<{
         )}
 
         {/* ── Inherited fields (read-only, with connectors) ───────────────── */}
-        {hasParent && inheritedFields.map((f: FieldSchema, i: number) => {
-          const inhInputRef: any = React.createRef();
-          const inhOutputRef: any = React.createRef();
-          return (
-            <React.Fragment key={`inherited_${f.name}`}>
-              <div
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{
-                  width: `${worldWidth - 4}px`,
-                  height: `${worldHeightField}px`,
-                  fontSize: worldHeightField / 2.5,
-                  paddingLeft: worldHeightField * 0.25,
-                  paddingRight: worldHeightField * 0.25,
-                }}
-                className="flex items-center justify-between
+        {hasParent &&
+          inheritedFields.map((f: FieldSchema, i: number) => {
+            const inhInputRef: any = React.createRef();
+            const inhOutputRef: any = React.createRef();
+            return (
+              <React.Fragment key={`inherited_${f.name}`}>
+                <div
+                  onMouseDown={(e) => e.stopPropagation()}
+                  style={{
+                    width: `${worldWidth - 4}px`,
+                    height: `${worldHeightField}px`,
+                    fontSize: worldHeightField / 2.5,
+                    paddingLeft: worldHeightField * 0.25,
+                    paddingRight: worldHeightField * 0.25,
+                  }}
+                  className="flex items-center justify-between
                   text-zinc-400 dark:text-zinc-600
                   bg-bg5 dark:bg-bg5dark
                   border-b border-contentBorder dark:border-contentBorderDark
                   select-none italic"
-                title={`Inherited from ${parentName}`}
-              >
-                <span className="truncate">{f.name}</span>
-                <span
-                  style={{ fontSize: worldHeightField / 3.2 }}
-                  className="text-violet-400 dark:text-violet-600 ml-1 flex-shrink-0 not-italic"
+                  title={`Inherited from ${parentName}`}
                 >
-                  inherited
-                </span>
-              </div>
-              {/* Left (input) connector dot */}
-              <div
-                style={{
-                  top: worldHeightField * (i + 2) + (1 / 3) * worldHeightField,
-                  width: worldHeightField / 3,
-                  height: worldHeightField / 3,
-                  left: `-${worldHeightField / 6}px`,
-                  backgroundColor: nodeData.color,
-                }}
-                ref={inhInputRef}
-                className="absolute rounded-full cursor-crosshair hover:bg-red-400 pointer-events-auto"
-                onMouseEnter={(e) => handleMouseEnterInput(inhInputRef, e, f.name)}
-                onMouseLeave={() => onMouseLeaveInput(id, f.name)}
-                onMouseDown={(e) => handleMouseDownOutput(inhInputRef, e, f.name)}
-              ></div>
-              {/* Right (output) connector dot */}
-              <div
-                style={{
-                  top: worldHeightField * (i + 2) + (1 / 3) * worldHeightField,
-                  width: worldHeightField / 3,
-                  height: worldHeightField / 3,
-                  right: `-${worldHeightField / 6}px`,
-                  backgroundColor: nodeData.color,
-                }}
-                ref={inhOutputRef}
-                className="absolute rounded-full cursor-crosshair hover:bg-red-400 pointer-events-auto"
-                onMouseEnter={(e) => handleMouseEnterInput(inhOutputRef, e, f.name)}
-                onMouseLeave={() => onMouseLeaveInput(id, f.name)}
-                onMouseDown={(e) => handleMouseDownOutput(inhOutputRef, e, f.name)}
-              ></div>
-            </React.Fragment>
-          );
-        })}
+                  <span className="truncate">{f.name}</span>
+                  <span
+                    style={{ fontSize: worldHeightField / 3.2 }}
+                    className="text-violet-400 dark:text-violet-600 ml-1 flex-shrink-0 not-italic"
+                  >
+                    inherited
+                  </span>
+                </div>
+                {/* Left (input) connector dot */}
+                <div
+                  style={{
+                    top:
+                      worldHeightField * (i + 2) + (1 / 3) * worldHeightField,
+                    width: worldHeightField / 3,
+                    height: worldHeightField / 3,
+                    left: `-${worldHeightField / 6}px`,
+                    backgroundColor: nodeData.color,
+                  }}
+                  ref={inhInputRef}
+                  className="absolute rounded-full cursor-crosshair hover:bg-red-400 pointer-events-auto"
+                  onMouseEnter={(e) =>
+                    handleMouseEnterInput(inhInputRef, e, f.name)
+                  }
+                  onMouseLeave={() => onMouseLeaveInput(id, f.name)}
+                  onMouseDown={(e) =>
+                    handleMouseDownOutput(inhInputRef, e, f.name)
+                  }
+                ></div>
+                {/* Right (output) connector dot */}
+                <div
+                  style={{
+                    top:
+                      worldHeightField * (i + 2) + (1 / 3) * worldHeightField,
+                    width: worldHeightField / 3,
+                    height: worldHeightField / 3,
+                    right: `-${worldHeightField / 6}px`,
+                    backgroundColor: nodeData.color,
+                  }}
+                  ref={inhOutputRef}
+                  className="absolute rounded-full cursor-crosshair hover:bg-red-400 pointer-events-auto"
+                  onMouseEnter={(e) =>
+                    handleMouseEnterInput(inhOutputRef, e, f.name)
+                  }
+                  onMouseLeave={() => onMouseLeaveInput(id, f.name)}
+                  onMouseDown={(e) =>
+                    handleMouseDownOutput(inhOutputRef, e, f.name)
+                  }
+                ></div>
+              </React.Fragment>
+            );
+          })}
 
         {nodeData.entitySchema.fields.map((f: any, i: number) => {
           const inputRef: any = React.createRef();
           const outputRef: any = createRef();
           const isDropTarget = dragOverIndex === i;
-          const isDragSource = isDraggingField && dragSourceIndexRef.current === i;
+          const isDragSource =
+            isDraggingField && dragSourceIndexRef.current === i;
           return (
             // Draggable row wrapper — same height as a single field row so the
             // connector-dot absolute-top math (calculated from the node origin)
@@ -713,12 +784,18 @@ const EditorNode: React.FC<{
                 // Show a top border on the row that is being hovered over as a
                 // drop indicator. Bottom border on the last row when dragging
                 // below it is handled separately in the "New Field" input.
-                borderTop: isDropTarget && dragSourceIndexRef.current !== null && dragSourceIndexRef.current > i
-                  ? `2px solid #f97316`
-                  : "2px solid transparent",
-                borderBottom: isDropTarget && dragSourceIndexRef.current !== null && dragSourceIndexRef.current < i
-                  ? `2px solid #f97316`
-                  : "2px solid transparent",
+                borderTop:
+                  isDropTarget &&
+                  dragSourceIndexRef.current !== null &&
+                  dragSourceIndexRef.current > i
+                    ? `2px solid #f97316`
+                    : "2px solid transparent",
+                borderBottom:
+                  isDropTarget &&
+                  dragSourceIndexRef.current !== null &&
+                  dragSourceIndexRef.current < i
+                    ? `2px solid #f97316`
+                    : "2px solid transparent",
                 // Dim the row being dragged so the user sees it is "lifted".
                 opacity: isDragSource ? 0.4 : 1,
                 position: "relative",
@@ -751,19 +828,24 @@ const EditorNode: React.FC<{
                 <svg
                   viewBox="0 0 8 14"
                   fill="currentColor"
-                  style={{ width: worldHeightField * 0.32, height: worldHeightField * 0.5 }}
+                  style={{
+                    width: worldHeightField * 0.32,
+                    height: worldHeightField * 0.5,
+                  }}
                 >
-                  <circle cx="2" cy="2"  r="1.2" />
-                  <circle cx="6" cy="2"  r="1.2" />
-                  <circle cx="2" cy="7"  r="1.2" />
-                  <circle cx="6" cy="7"  r="1.2" />
+                  <circle cx="2" cy="2" r="1.2" />
+                  <circle cx="6" cy="2" r="1.2" />
+                  <circle cx="2" cy="7" r="1.2" />
+                  <circle cx="6" cy="7" r="1.2" />
                   <circle cx="2" cy="12" r="1.2" />
                   <circle cx="6" cy="12" r="1.2" />
                 </svg>
               </div>
 
               <input
-                ref={(el) => { if (el) fieldInputRefs.current.set(f.name, el); }}
+                ref={(el) => {
+                  if (el) fieldInputRefs.current.set(f.name, el);
+                }}
                 onMouseDown={(e: any) => {
                   e.stopPropagation();
                   if (f.name !== activeField?.name) {
@@ -798,17 +880,18 @@ const EditorNode: React.FC<{
                   flexShrink: 0,
                 }}
                 className={`text-left rounded-md border-0
-                  ${editingFieldName === f.name
-                    ? "outline outline-1 outline-blue-400 bg-white dark:bg-zinc-800 cursor-text"
-                    : highlightedFields.has(f.name)
-                      ? "bg-blue-200 dark:bg-blue-800 outline-none cursor-default select-none"
-                      : selected && activeField?.name === f.name
-                        ? "bg-blue-100 dark:bg-blue-700 outline-none cursor-default select-none"
-                        : indexMemberFields.has(f.name)
-                          ? "font-bold outline-none cursor-default select-none"
-                          : nodeData.color
-                            ? "outline-none cursor-default select-none hover:bg-bg5 dark:hover:bg-bg5dark"
-                            : "bg-bg6 dark:bg-bg6dark outline-none cursor-default select-none"
+                  ${
+                    editingFieldName === f.name
+                      ? "outline outline-1 outline-none bg-content dark:bg-contentDark cursor-text"
+                      : highlightedFields.has(f.name)
+                        ? "bg-blue-200 dark:bg-blue-800 outline-none cursor-default select-none"
+                        : selected && activeField?.name === f.name
+                          ? "bg-blue-100 dark:bg-blue-700 outline-none cursor-default select-none"
+                          : indexMemberFields.has(f.name)
+                            ? "bg-content dark:bg-contentDark font-bold outline-none cursor-default select-none"
+                            : nodeData.color
+                              ? "bg-content dark:bg-contentDark outline-none cursor-default select-none hover:bg-bg5 dark:hover:bg-bg5dark"
+                              : "bg-content dark:bg-contentDark outline-none cursor-default select-none"
                   }`}
               ></input>
 
@@ -900,7 +983,7 @@ const EditorNode: React.FC<{
             height: `${worldHeightField}px`,
             fontSize: worldHeightField / 2.5,
           }}
-          className={`${nodeData.color ? "" : "bbg-bg6 dark:bg-bg6dark"} text-center p-0 rounded-none outline-none`}
+          className={`bg-content dark:bg-contentDark text-center p-0 rounded-none outline-none`}
         ></input>
         <div
           style={{
@@ -931,7 +1014,11 @@ const EditorNode: React.FC<{
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
-            style={{ width: worldHeightField * 0.45, height: worldHeightField * 0.45, flexShrink: 0 }}
+            style={{
+              width: worldHeightField * 0.45,
+              height: worldHeightField * 0.45,
+              flexShrink: 0,
+            }}
           >
             <rect x="1" y="3" width="14" height="2.5" rx="0.5" />
             <rect x="1" y="7" width="9" height="2.5" rx="0.5" />
@@ -946,7 +1033,9 @@ const EditorNode: React.FC<{
             // <div key={index.name} className="relative">
             <>
               <input
-                ref={(el) => { if (el) indexInputRefs.current.set(index.name, el); }}
+                ref={(el) => {
+                  if (el) indexInputRefs.current.set(index.name, el);
+                }}
                 onMouseDown={(e: any) => {
                   e.stopPropagation();
                   if (index.name !== activeIndex?.name) {
@@ -979,15 +1068,16 @@ const EditorNode: React.FC<{
                   marginRight: worldHeightField * 0.15,
                 }}
                 className={`text-center rounded-md border-0
-                  ${editingIndexName === index.name
-                    ? "outline outline-1 outline-blue-400 bg-white dark:bg-zinc-800 cursor-text"
-                    : highlightedFields.has(index.name)
-                      ? "bg-blue-200 dark:bg-blue-800 outline-none cursor-default select-none"
-                      : selected && activeIndex?.name === index.name
-                        ? "bg-blue-100 dark:bg-blue-700 outline-none cursor-default select-none"
-                        : nodeData.color
-                          ? "outline-none cursor-default select-none hover:bg-bg5 dark:hover:bg-bg5dark"
-                          : "bg-bg5 dark:bg-bg5dark outline-none cursor-default select-none"
+                  ${
+                    editingIndexName === index.name
+                      ? "outline outline-1 outline-none bg-content dark:bg-contentDark cursor-text"
+                      : highlightedFields.has(index.name)
+                        ? "bg-blue-200 dark:bg-blue-800 outline-none cursor-default select-none"
+                        : selected && activeIndex?.name === index.name
+                          ? "bg-blue-100 dark:bg-blue-700 outline-none cursor-default select-none"
+                          : nodeData.color
+                            ? "bg-content dark:bg-contentDark outline-none cursor-default select-none hover:bg-bg5 dark:hover:bg-bg5dark"
+                            : "bg-content dark:bg-contentDark outline-none cursor-default select-none"
                   }`}
               ></input>
               {(isDraggingEdge || true) && (

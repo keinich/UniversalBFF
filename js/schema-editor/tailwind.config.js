@@ -150,6 +150,8 @@ module.exports = {
         bg8dark: getBg(7, 1),
         bg9dark: getBg(8, 1),
         bg10dark: getBg(9, 1),
+        bg11dark: getBg(10, 1),
+        bg12dark: getBg(1, 1),
         // prim1: 'var(--color-prim-100)',
         // prim2: 'var(--color-prim-200)',
         // prim3: 'var(--color-prim-300)',
