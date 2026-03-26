@@ -1171,6 +1171,61 @@ const SchemaEditor: React.FC<{
               }
               updateNodes([...nodes]);
             }}
+            onDeleteEntity={() => {
+              if (selectedNode !== null) {
+                const deletedNode = nodes.find((n) => n.id === selectedNode);
+                if (deletedNode) {
+                  const deletedName = deletedNode.entitySchema.name;
+                  const updatedNodes = nodes
+                    .filter((n) => n.id !== selectedNode)
+                    .map((n) => {
+                      if (n.entitySchema.inheritedEntityName === deletedName) {
+                        n.entitySchema.inheritedEntityName = null;
+                        n.inheritedFieldCount = 0;
+                        n.inheritedFieldNames = [];
+                      }
+                      return n;
+                    });
+                  const updatedEdges = edges.filter(
+                    (edge) =>
+                      edge.nodeStartId !== selectedNode &&
+                      edge.nodeEndId !== selectedNode,
+                  );
+                  updateEdges(updatedEdges);
+                  updateNodes(updatedNodes);
+                }
+                setSelectedNode(null);
+              }
+            }}
+            onDeleteField={(f) => {
+              const nodeData = nodes.find((n) => n.id === selectedNode);
+              if (nodeData) {
+                handleDeleteField(nodeData, f);
+                setSelectedField(null);
+              }
+            }}
+            onDeleteIndex={(i) => {
+              const nodeData = nodes.find((n) => n.id === selectedNode);
+              if (nodeData) {
+                handleDeleteIndex(nodeData, i);
+                setSelectedIndex(null);
+              }
+            }}
+            onDeleteRelation={(r) => {
+              if (selectedEdge) {
+                if (selectedEdge.edgeType === "inheritance") {
+                  const childNode = nodes.find((n) => n.id === selectedEdge.nodeStartId);
+                  if (childNode) {
+                    childNode.entitySchema.inheritedEntityName = null;
+                    childNode.inheritedFieldCount = 0;
+                    childNode.inheritedFieldNames = [];
+                    updateNodes([...nodes]);
+                  }
+                }
+                updateEdges(edges.filter((e) => e.id !== selectedEdge.id));
+                setSelectedEdge(null);
+              }
+            }}
           ></EditorProperties>
         </div>
       </div>

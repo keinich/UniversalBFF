@@ -572,6 +572,7 @@ const EditorNode: React.FC<{
           width: `${worldWidth}px`,
           height: `${height}px`,
           transform: `translate(${viewPos.x}px, ${viewPos.y}px`,
+          borderColor: selected ? nodeData.color : undefined,
           // top: `-${height / 2}px`,
           // left: `-${worldWidth / 2}px`,
           // borderTop: `${worldHeightField * 0.15 * 0}px solid`,
@@ -591,7 +592,7 @@ const EditorNode: React.FC<{
           bg-content dark:bg-contentDark
         shadow-md hover:shadow-2xl ${
           nodeData.color ? "" : "bg-bg6 dark:bg-bg6dark"
-        } ${selected ? "border-orange-400 " : "border-menuBorder dark:border-menuDark"}`}
+        } ${selected ? undefined : "border-menuBorder dark:border-menuDark"}`}
       >
         <div
           id="test123"
