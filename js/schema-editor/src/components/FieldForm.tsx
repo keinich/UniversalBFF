@@ -7,9 +7,7 @@ const INPUT_CLS =
   "text-sm rounded-sm bg-bg2 dark:bg-bg2dark w-full px-2 py-1.5 outline-none " +
   "border border-transparent focus:border-bg5 dark:focus:border-bg5dark transition-colors";
 
-const SELECT_CLS =
-  INPUT_CLS +
-  " appearance-none pr-7 cursor-pointer";
+const SELECT_CLS = INPUT_CLS + " appearance-none pr-7 cursor-pointer";
 
 // ─── SelectField helper ───────────────────────────────────────────────────────
 
@@ -97,11 +95,21 @@ const FieldForm: React.FC<{
         {onDelete && (
           <button
             title="Delete field"
-            onClick={() => { if (window.confirm(`Delete field "${field.name}"?`)) onDelete(); }}
+            onClick={() => {
+              if (window.confirm(`Delete field "${field.name}"?`)) onDelete();
+            }}
             className="p-1 rounded text-red-400 hover:bg-red-500/20 transition-colors"
           >
-            <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+            <svg
+              className="w-3.5 h-3.5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
             </svg>
           </button>
         )}
@@ -110,7 +118,6 @@ const FieldForm: React.FC<{
       {/* Scrollable content */}
       <div className="flex-1 overflow-auto px-3 py-3">
         <div className="flex flex-col">
-
           {/* ── Identity ─────────────────────────────────────────────────── */}
           <SectionHeader label="Identity" first />
           <div className="flex flex-col gap-2">
@@ -130,10 +137,15 @@ const FieldForm: React.FC<{
             <FormField label="Type">
               <SelectField
                 value={field.type}
-                onChange={(v) => mutate(() => { field.type = v; })}
+                onChange={(v) =>
+                  mutate(() => {
+                    field.type = v;
+                  })
+                }
               >
                 <option value="String">String</option>
                 <option value="Date">Date</option>
+                <option value="int">Int</option>
                 <option value="Int32">Int32</option>
                 <option value="Int64">Int64</option>
                 <option value="Boolean">Boolean</option>
@@ -270,7 +282,11 @@ const FieldForm: React.FC<{
             <FormField label="Setability Flags">
               <SelectField
                 value={String(field.setabilityFlags)}
-                onChange={(v) => mutate(() => { field.setabilityFlags = parseInt(v, 10); })}
+                onChange={(v) =>
+                  mutate(() => {
+                    field.setabilityFlags = parseInt(v, 10);
+                  })
+                }
               >
                 <option value="0">Never</option>
                 <option value="1">On Creation</option>
@@ -288,7 +304,11 @@ const FieldForm: React.FC<{
             <FormField label="Filterable">
               <SelectField
                 value={String(field.filterable)}
-                onChange={(v) => mutate(() => { field.filterable = parseInt(v, 10); })}
+                onChange={(v) =>
+                  mutate(() => {
+                    field.filterable = parseInt(v, 10);
+                  })
+                }
               >
                 <option value="0">None</option>
                 <option value="1">Exact Match</option>
@@ -342,7 +362,6 @@ const FieldForm: React.FC<{
               />
             </FormField>
           </div>
-
         </div>
       </div>
     </div>

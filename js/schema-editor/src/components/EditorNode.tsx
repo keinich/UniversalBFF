@@ -34,6 +34,7 @@ function getFieldTypeIcon(type: string, size: number) {
           <circle cx="8.5" cy="8" r="0.9" fill="currentColor" stroke="none" />
         </svg>
       );
+    case "int":
     case "Int32":
     case "Int64":
       return (
