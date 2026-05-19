@@ -13,4 +13,24 @@ In the editor, there are edges that connect fields or indices. These Edges are s
 
 
 
+in the schema-editor ui, there is the right panel to edit the details of the selected objects. Lets take care
+  of the case when a edge (relationSchema) is selected. A edge represents a RelationSchema (you can find that in
+  F:\dev\UShell\UniversalBFF\js\schema-editor\node_modules\fusefx-modeldescription\lib\relationSchema.js). the details
+  panel should match the details panel for a FieldSchema in style and overall behaviour.
+  Make the detailpanel to look professional and finish implementing it so that you can edit all relevant data of the relationSchema in it.
 
+in the schema-editor-ui, there is the EditorNode to represent a EntitySchema 
+(you can find it in F:\dev\UShell\UniversalBFF\js\schema-editor\node_modules\fusefx-modeldescription\lib\entitySchema.js). The EditorNode displays 
+all fields and all indices inside the EntitySchema. Right now, the indices that come at the bottom are not displayed different than the fields. Make it so, that
+you can see immediatly, that the indicesd at the bottom are indices and not just more fields.
+
+
+in the schema-editor-ui, there is the EditorNode to represent a EntitySchema 
+(you can find it in F:\dev\UShell\UniversalBFF\js\schema-editor\node_modules\fusefx-modeldescription\lib\entitySchema.js). The EditorNode displays 
+all fields EntitySchema. Make it so, that when single clicking on a field, it only gets selected and is not yet editable. 
+As soon es you click any character or Enter or you mouse double click, the field gets editable, the look becomes a usual text edit field that behaves like a usual professional
+text edit field. By clicking enter or when the field loses its selected state, you exit edit mode.
+
+In SchemaEditor.cs there is the function GenerateEntitesCsCode. Implement this function: The goal is to create valid
+csharp code. The input is a SchemaRoot, you can find the definition of SchemaRoot and all other relevant classes in
+the folder "ModelDescription" in this directory. Generate one class per EntitySchema. Generate a property in that class for eacht FieldSchema int the EntitySchema.

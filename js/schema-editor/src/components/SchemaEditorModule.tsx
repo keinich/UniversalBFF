@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import SchemaEditor from "./SchemaEditor";
 import UShellModuleWrapper from "./UshellModuleWrapper";
 import {
@@ -20,15 +20,17 @@ const SchemaEditorModuleWrapper: React.FC<{ inputData: IWidget }> = ({
   console.log("dataSourceManager", dataSourceManager);
   console.log("dataSourceEndpointUrl", dataSourceEndpointUrl);
 
+  const [schemaName, setSchemaName] = useState<string>("Test");
+
   if (!dataSourceEndpointUrl) return <div>No DataSource</div>;
   const sr: SchemaRoot = new SchemaRoot();
   return (
     <UShellModuleWrapper inputData={inputData}>
       <SchemaEditor
         onChangeSchema={() => {}}
-        onChangeSchemaName={() => {}}
+        onChangeSchemaName={(name) => setSchemaName(name)}
         schema={sr}
-        schemaName="Test"
+        schemaName={schemaName}
       ></SchemaEditor>
     </UShellModuleWrapper>
   );

@@ -855,7 +855,6 @@ const SchemaEditor: React.FC<{
         showProperties={showProperties}
         setShowProperties={setShowProperties}
         schemaName={schemaName}
-        setSchemaName={onChangeSchemaName}
         save={() => saveSchema()}
         dirty={dirty}
       ></EditorToolbar>
@@ -1146,6 +1145,8 @@ const SchemaEditor: React.FC<{
           )}
           <EditorProperties
             schema={activeSchema}
+            schemaName={schemaName}
+            onChangeName={onChangeSchemaName}
             nodeData={nodes.find((n) => n.id == selectedNode)}
             field={selectedField}
             relation={selectedEdge?.relation}

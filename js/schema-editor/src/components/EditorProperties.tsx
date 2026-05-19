@@ -263,8 +263,10 @@ const DesignerTab: React.FC<{
 
 const SchemaRootForm: React.FC<{
   schema: SchemaRoot;
+  schemaName: string;
+  onChangeName: (name: string) => void;
   onChange: () => void;
-}> = ({ schema, onChange }) => {
+}> = ({ schema, schemaName, onChangeName, onChange }) => {
   const [_, setLocal] = useState(0);
   const forceUpdate = () => setLocal((n) => n + 1);
   const mutate = (fn: () => void) => {
@@ -284,6 +286,16 @@ const SchemaRootForm: React.FC<{
         <div className="flex flex-col">
           <SectionHeader label="Identity" first />
           <div className="flex flex-col gap-2">
+            {/* Schema name — synced live to the topbar label */}
+            <FormField label="Name">
+              <input
+                type="text"
+                className={INPUT_CLS}
+                value={schemaName}
+                onChange={(e) => onChangeName(e.target.value)}
+                placeholder="Schema name..."
+              />
+            </FormField>
             <FormField label="Description Format">
               <input
                 type="text"
@@ -346,6 +358,8 @@ const SchemaRootForm: React.FC<{
 
 const EditorProperties: React.FC<{
   schema: SchemaRoot;
+  schemaName: string;
+  onChangeName: (name: string) => void;
   nodeData: NodeData | undefined;
   field: FieldSchema | null;
   relation: RelationSchema | undefined;
@@ -355,7 +369,7 @@ const EditorProperties: React.FC<{
   onDeleteField?: (f: FieldSchema) => void;
   onDeleteIndex?: (i: IndexSchema) => void;
   onDeleteRelation?: (r: RelationSchema) => void;
-}> = ({ schema, nodeData, relation, field, index, onChange, onDeleteEntity, onDeleteField, onDeleteIndex, onDeleteRelation }) => {
+}> = ({ schema, schemaName, onChangeName, nodeData, relation, field, index, onChange, onDeleteEntity, onDeleteField, onDeleteIndex, onDeleteRelation }) => {
   const [activeTab, setActiveTab] = useState<"data" | "designer">("data");
   // Lightweight forceUpdate so mutations to the object reference re-render this panel.
   const [_, setLocal] = useState(0);
@@ -378,7 +392,12 @@ const EditorProperties: React.FC<{
   return (
     <div className="flex flex-col gap-1 h-full">
       {showSchemaRoot && (
-        <SchemaRootForm schema={schema} onChange={() => onChange()} />
+        <SchemaRootForm
+          schema={schema}
+          schemaName={schemaName}
+          onChangeName={onChangeName}
+          onChange={() => onChange()}
+        />
       )}
       {showEntityTabs && (
         <div className="flex flex-col h-full">

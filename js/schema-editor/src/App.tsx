@@ -33,6 +33,7 @@ function keysToLowerCase(obj: any): any {
 const queryClient = new QueryClient();
 function App() {
   const [sr, setSr] = React.useState<SchemaRoot | null>(null);
+  const [schemaName, setSchemaName] = React.useState<string>("Test");
   const webview = (window as any).chrome?.webview;
   if (webview) {
     webview.addEventListener("message", (event: any) => {
@@ -58,9 +59,9 @@ function App() {
             );
           }
         }}
-        onChangeSchemaName={() => {}}
+        onChangeSchemaName={(name) => setSchemaName(name)}
         schema={sr}
-        schemaName="Test"
+        schemaName={schemaName}
       ></SchemaEditor>
     </div>
   );
